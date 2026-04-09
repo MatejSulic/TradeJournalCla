@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getTrade, getEntryModels, createTrade, updateTrade } from '../api';
+import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, createTrade, updateTrade } from '../api';
 
 const ASSETS = ['MNQ', 'NQ', 'MES', 'ES', 'MYM', 'YM', 'M2K', 'RTY', 'MCL', 'CL', 'MGC', 'GC', 'SI', 'ZB', 'ZN'];
 
@@ -18,6 +18,8 @@ export default function TradeForm() {
   const [fields, setFields] = useState(EMPTY);
   const [selectedModelIds, setSelectedModelIds] = useState([]);
   const [models, setModels] = useState([]);
+  const [newModelName, setNewModelName] = useState('');
+  const [modelError, setModelError] = useState('');
   const [existingScreenshots, setExistingScreenshots] = useState([]);
   const [deleteIds, setDeleteIds] = useState([]);
   const [ltfFiles, setLtfFiles] = useState([]);
@@ -58,6 +60,28 @@ export default function TradeForm() {
     setSelectedModelIds(ids =>
       ids.includes(modelId) ? ids.filter(x => x !== modelId) : [...ids, modelId]
     );
+  };
+
+  const handleAddModel = async (e) => {
+    e.preventDefault();
+    const name = newModelName.trim();
+    if (!name) return;
+    setModelError('');
+    try {
+      const created = await createEntryModel(name);
+      setModels(ms => [...ms, created]);
+      setSelectedModelIds(ids => [...ids, created.id]);
+      setNewModelName('');
+    } catch (err) {
+      setModelError(err.message);
+    }
+  };
+
+  const handleRemoveModel = async (modelId) => {
+    if (!confirm('Remove this setup?')) return;
+    await deleteEntryModel(modelId);
+    setModels(ms => ms.filter(m => m.id !== modelId));
+    setSelectedModelIds(ids => ids.filter(x => x !== modelId));
   };
 
   const toggleDelete = (ssId) => {
@@ -145,29 +169,48 @@ export default function TradeForm() {
         {/* Entry Models */}
         <div className="card space-y-3">
           <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Setup / Entry Models</h2>
-          {models.length === 0 ? (
-            <p className="text-sm text-slate-500">No entry models yet. <Link to="/settings" className="text-accent hover:underline">Add some in Settings.</Link></p>
-          ) : (
+          {models.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {models.map(m => {
                 const active = selectedModelIds.includes(m.id);
                 return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => toggleModel(m.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                      active
-                        ? 'bg-accent text-white border-accent'
-                        : 'bg-transparent text-slate-400 border-surface-border hover:border-accent/50'
-                    }`}
-                  >
-                    {m.name}
-                  </button>
+                  <div key={m.id} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => toggleModel(m.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                        active
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-transparent text-slate-400 border-surface-border hover:border-accent/50'
+                      }`}
+                    >
+                      {m.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveModel(m.id)}
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-surface-raised text-slate-500 hover:bg-loss hover:text-white text-[10px] items-center justify-center hidden group-hover:flex"
+                      title="Delete setup"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 );
               })}
             </div>
           )}
+          {/* Inline add */}
+          <form onSubmit={handleAddModel} className="flex gap-2">
+            <input
+              className="input flex-1 text-sm"
+              placeholder="New setup name (e.g. FVG, OB, BOS)…"
+              value={newModelName}
+              onChange={e => setNewModelName(e.target.value)}
+              maxLength={80}
+            />
+            <button type="submit" className="btn-ghost text-sm whitespace-nowrap">+ Add</button>
+          </form>
+          {modelError && <p className="text-loss text-xs">{modelError}</p>}
         </div>
 
         {/* Notes */}
