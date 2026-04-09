@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-slate-100 font-sans antialiased;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a3047 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply bg-surface-border rounded;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-indigo-500;
+  }
+  .btn-ghost {
+    @apply btn text-slate-300 hover:bg-surface-raised hover:text-slate-100;
+  }
+  .btn-danger {
+    @apply btn bg-surface-raised text-orange-400 hover:bg-orange-400/10 border border-orange-400/30;
+  }
+  .card {
+    @apply bg-surface-card border border-surface-border rounded-xl p-5;
+  }
+  .input {
+    @apply w-full bg-surface-raised border border-surface-border rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500
+           focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/60 transition;
+  }
+  .label {
+    @apply block text-xs font-medium text-slate-400 mb-1.5;
+  }
+  .pnl-positive {
+    @apply text-profit font-medium;
+  }
+  .pnl-negative {
+    @apply text-loss font-medium;
+  }
+}
