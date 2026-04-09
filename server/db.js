@@ -30,7 +30,7 @@ db.exec(`
     why_entered      TEXT,
     psychology       TEXT,
     improvements     TEXT,
-    risk_management  TEXT    CHECK(risk_management IN ('perfect', 'good', 'poor') OR risk_management IS NULL),
+    risk_management  TEXT    CHECK(risk_management IN ('low', 'perfect', 'high') OR risk_management IS NULL),
     created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
   );

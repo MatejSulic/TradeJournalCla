@@ -10,9 +10,9 @@ const PNL_STYLE = {
 };
 
 const RM_STYLE = {
+  low:     'bg-loss/10 text-loss border border-loss/30',
   perfect: 'bg-profit/10 text-profit border border-profit/30',
-  good:    'bg-accent/10 text-accent border border-accent/30',
-  poor:    'bg-loss/10 text-loss border border-loss/30',
+  high:    'bg-accent/10 text-accent border border-accent/30',
 };
 
 export default function TradeDetail() {

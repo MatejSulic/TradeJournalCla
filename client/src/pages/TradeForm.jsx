@@ -157,9 +157,9 @@ export default function TradeForm() {
             <Field label="Risk Management">
               <select className="input" value={fields.risk_management} onChange={e => set('risk_management', e.target.value)}>
                 <option value="">— Select —</option>
+                <option value="low">Low</option>
                 <option value="perfect">Perfect</option>
-                <option value="good">Good</option>
-                <option value="poor">Poor</option>
+                <option value="high">High</option>
               </select>
             </Field>
           </div>
