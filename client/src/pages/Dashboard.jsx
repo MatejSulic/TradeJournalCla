@@ -19,7 +19,7 @@ const PNL_STYLE = {
 export default function Dashboard() {
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
-  const [filters, setFilters] = useState({ asset: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' });
+  const [filters, setFilters] = useState({ asset: '', direction: '', pnl: '', entry_model_id: [], from: '', to: '' });
 
   const load = useCallback(() => {
     getTrades(filters).then(setTrades);
@@ -29,6 +29,15 @@ export default function Dashboard() {
   useEffect(() => { load(); }, [load]);
 
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
+
+  const toggleModelFilter = (id) => {
+    setFilters(f => ({
+      ...f,
+      entry_model_id: f.entry_model_id.includes(id)
+        ? f.entry_model_id.filter(x => x !== id)
+        : [...f.entry_model_id, id],
+    }));
+  };
 
   // Compute stats from filtered trades
   const wins       = trades.filter(t => t.pnl === 'win').length;
@@ -61,37 +70,57 @@ export default function Dashboard() {
       <h1 className="text-xl font-semibold text-slate-100">Dashboard</h1>
 
       {/* Filters */}
-      <div className="card flex flex-wrap gap-3">
-        <select className="input w-32" value={filters.asset} onChange={e => set('asset', e.target.value)}>
-          <option value="">All assets</option>
-          {['MNQ','NQ','MES','ES','MYM','YM','M2K','RTY','MCL','CL','MGC','GC','SI','ZB','ZN'].map(a => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
-        <select className="input w-36" value={filters.direction} onChange={e => set('direction', e.target.value)}>
-          <option value="">All directions</option>
-          <option value="long">Long</option>
-          <option value="short">Short</option>
-        </select>
-        <select className="input w-36" value={filters.pnl} onChange={e => set('pnl', e.target.value)}>
-          <option value="">All results</option>
-          <option value="win">Win</option>
-          <option value="loss">Loss</option>
-          <option value="breakeven">Breakeven</option>
-        </select>
-        <select className="input w-44" value={filters.entry_model_id} onChange={e => set('entry_model_id', e.target.value)}>
-          <option value="">All setups</option>
-          {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-        <input type="date" className="input w-40" value={filters.from} onChange={e => set('from', e.target.value)} />
-        <span className="self-center text-slate-500 text-sm">to</span>
-        <input type="date" className="input w-40" value={filters.to} onChange={e => set('to', e.target.value)} />
-        <button
-          className="btn-ghost text-xs"
-          onClick={() => setFilters({ asset: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
-        >
-          Clear
-        </button>
+      <div className="card space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <select className="input w-32" value={filters.asset} onChange={e => set('asset', e.target.value)}>
+            <option value="">All assets</option>
+            {['MNQ','NQ','MES','ES','MYM','YM','M2K','RTY','MCL','CL','MGC','GC','SI','ZB','ZN'].map(a => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          <select className="input w-36" value={filters.direction} onChange={e => set('direction', e.target.value)}>
+            <option value="">All directions</option>
+            <option value="long">Long</option>
+            <option value="short">Short</option>
+          </select>
+          <select className="input w-36" value={filters.pnl} onChange={e => set('pnl', e.target.value)}>
+            <option value="">All results</option>
+            <option value="win">Win</option>
+            <option value="loss">Loss</option>
+            <option value="breakeven">Breakeven</option>
+          </select>
+          <input type="date" className="input w-40" value={filters.from} onChange={e => set('from', e.target.value)} />
+          <span className="self-center text-slate-500 text-sm">to</span>
+          <input type="date" className="input w-40" value={filters.to} onChange={e => set('to', e.target.value)} />
+          <button
+            className="btn-ghost text-xs"
+            onClick={() => setFilters({ asset: '', direction: '', pnl: '', entry_model_id: [], from: '', to: '' })}
+          >
+            Clear
+          </button>
+        </div>
+        {models.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1 border-t border-surface-border">
+            <span className="text-xs text-slate-500 self-center mr-1">Setups:</span>
+            {models.map(m => {
+              const active = filters.entry_model_id.includes(m.id);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleModelFilter(m.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    active
+                      ? 'bg-accent text-white border-accent'
+                      : 'bg-transparent text-slate-400 border-surface-border hover:border-accent/50'
+                  }`}
+                >
+                  {m.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Stat cards */}

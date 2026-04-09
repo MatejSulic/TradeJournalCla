@@ -11,10 +11,14 @@ async function req(path, options = {}) {
 
 // Trades
 export const getTrades = (params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== ''))
-  ).toString();
-  return req(`/trades${qs ? `?${qs}` : ''}`);
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) continue;
+    if (Array.isArray(v)) v.forEach(item => qs.append(k, item));
+    else qs.append(k, v);
+  }
+  const str = qs.toString();
+  return req(`/trades${str ? `?${str}` : ''}`);
 };
 export const getTrade = (id) => req(`/trades/${id}`);
 export const getStats = () => req('/trades/stats');

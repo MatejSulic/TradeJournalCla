@@ -39,10 +39,18 @@ router.get('/', (req, res) => {
   const where = ['1=1'];
   const params = [];
 
-  if (entry_model_id) {
-    joins.push('JOIN trade_entry_models tem ON tem.trade_id = t.id');
-    where.push('tem.entry_model_id = ?');
-    params.push(entry_model_id);
+  const modelIds = entry_model_id
+    ? (Array.isArray(entry_model_id) ? entry_model_id : [entry_model_id]).map(Number).filter(Boolean)
+    : [];
+  if (modelIds.length) {
+    // AND logic: trade must have ALL selected setups
+    where.push(`t.id IN (
+      SELECT trade_id FROM trade_entry_models
+      WHERE entry_model_id IN (${modelIds.map(() => '?').join(',')})
+      GROUP BY trade_id
+      HAVING COUNT(DISTINCT entry_model_id) = ?
+    )`);
+    params.push(...modelIds, modelIds.length);
   }
 
   if (joins.length) sql += ' ' + joins.join(' ');

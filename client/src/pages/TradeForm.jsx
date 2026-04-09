@@ -62,8 +62,7 @@ export default function TradeForm() {
     );
   };
 
-  const handleAddModel = async (e) => {
-    e.preventDefault();
+  const handleAddModel = async () => {
     const name = newModelName.trim();
     if (!name) return;
     setModelError('');
@@ -200,16 +199,17 @@ export default function TradeForm() {
             </div>
           )}
           {/* Inline add */}
-          <form onSubmit={handleAddModel} className="flex gap-2">
+          <div className="flex gap-2">
             <input
               className="input flex-1 text-sm"
               placeholder="New setup name (e.g. FVG, OB, BOS)…"
               value={newModelName}
               onChange={e => setNewModelName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddModel(); } }}
               maxLength={80}
             />
-            <button type="submit" className="btn-ghost text-sm whitespace-nowrap">+ Add</button>
-          </form>
+            <button type="button" onClick={handleAddModel} className="btn-ghost text-sm whitespace-nowrap">+ Add</button>
+          </div>
           {modelError && <p className="text-loss text-xs">{modelError}</p>}
         </div>
 
