@@ -6,61 +6,40 @@ Osobní obchodní deník pro sledování trades, psychologie a výkonu.
 
 ## Co budeš potřebovat
 
-Před spuštěním si nainstaluj:
-
-- **Node.js** (verze 18 nebo novější) — stáhni na [nodejs.org](https://nodejs.org)
-- **Git** — stáhni na [git-scm.com](https://git-scm.com)
+Nainstaluj si **Node.js** (verze 18 nebo novější) — stáhni na [nodejs.org](https://nodejs.org).
 
 ---
 
-## Jak spustit
+## Spuštění — jedním kliknutím
 
 ### 1. Stáhni projekt
 
-Otevři terminál (příkazový řádek) a napiš:
+Klikni na zelené tlačítko **Code → Download ZIP**, rozbal archiv kamkoliv na počítači.
 
-```bash
-git clone https://github.com/MatejSulic/TradeJournalCla.git
-cd TradeJournalCla
-```
+### 2. Spusť aplikaci
 
-### 2. Nainstaluj závislosti
+- **Windows** — dvakrát klikni na soubor `Spustit.bat`
+- **Mac / Linux** — dvakrát klikni na soubor `Spustit.sh`
 
-```bash
-npm install
-cd client && npm install && cd ..
-cd server && npm install && cd ..
-```
+Při prvním spuštění se automaticky nainstaluje vše potřebné (může to chvíli trvat).
+Poté se automaticky otevře prohlížeč na adrese `http://localhost:5173`.
 
-### 3. Spusť aplikaci
+### 3. Zastavení
 
-```bash
-npm run dev
-```
-
-### 4. Otevři v prohlížeči
-
-Přejdi na adresu:
-
-```
-http://localhost:5173
-```
-
----
-
-## Jak zastavit aplikaci
-
-V terminálu stiskni **Ctrl + C**.
+Zavři okno terminálu které se otevřelo, nebo stiskni **Ctrl + C**.
 
 ---
 
 ## Časté problémy
 
-**"npm: command not found"**
-→ Node.js není nainstalovaný. Stáhni ho na [nodejs.org](https://nodejs.org) a zkus znovu.
+**Prohlížeč se neotevřel automaticky**
+→ Otevři ručně: [http://localhost:5173](http://localhost:5173)
+
+**"Node.js není nainstalovaný"**
+→ Stáhni Node.js na [nodejs.org](https://nodejs.org), nainstaluj a spusť skript znovu.
 
 **Stránka se nenačte**
-→ Ujisti se, že aplikace stále běží v terminálu (krok 3).
+→ Ujisti se, že okno terminálu stále běží.
 
 **Port je obsazený**
-→ Zkus zavřít jiné aplikace nebo restartuj počítač.
+→ Restartuj počítač a zkus znovu.
