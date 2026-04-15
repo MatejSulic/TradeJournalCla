@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { db, UPLOADS_DIR } = require('../db');
+const { awardXP, recalcNoteXP, revokeXP } = require('../gamification');
 
 const router = express.Router();
 
@@ -140,7 +141,8 @@ router.post('/', uploadFields, (req, res) => {
 
   const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(tradeId);
   const screenshots = db.prepare('SELECT * FROM screenshots WHERE trade_id = ?').all(tradeId);
-  res.status(201).json({ ...hydrateTrade(trade), screenshots });
+  const gamification = awardXP(tradeId);
+  res.status(201).json({ ...hydrateTrade(trade), screenshots, gamification });
 });
 
 // Update trade
@@ -191,11 +193,92 @@ router.put('/:id', uploadFields, (req, res) => {
 
   const updated = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
   const screenshots = db.prepare('SELECT * FROM screenshots WHERE trade_id = ?').all(req.params.id);
-  res.json({ ...hydrateTrade(updated), screenshots });
+  const gamification = recalcNoteXP(req.params.id);
+  res.json({ ...hydrateTrade(updated), screenshots, gamification });
+});
+
+// Bulk import trades from CSV (parsed JSON on client)
+router.post('/import', (req, res) => {
+  const rows = req.body;
+  if (!Array.isArray(rows) || rows.length === 0)
+    return res.status(400).json({ error: 'Expected non-empty array of trades' });
+
+  const VALID_DIRECTION = ['long', 'short'];
+  const VALID_PNL = ['win', 'loss', 'breakeven'];
+  const VALID_RM = ['low', 'perfect', 'high'];
+
+  const errors = [];
+  const valid = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const rowNum = i + 1;
+
+    if (!r.asset || !r.direction || !r.pnl || !r.entry_time) {
+      errors.push({ row: rowNum, message: 'Chybí povinné pole: asset, direction, pnl nebo entry_time' });
+      continue;
+    }
+    if (!VALID_DIRECTION.includes(r.direction)) {
+      errors.push({ row: rowNum, message: `Neplatná direction: "${r.direction}" (povoleno: long, short)` });
+      continue;
+    }
+    if (!VALID_PNL.includes(r.pnl)) {
+      errors.push({ row: rowNum, message: `Neplatné pnl: "${r.pnl}" (povoleno: win, loss, breakeven)` });
+      continue;
+    }
+    if (r.risk_management && !VALID_RM.includes(r.risk_management)) {
+      errors.push({ row: rowNum, message: `Neplatné risk_management: "${r.risk_management}" (povoleno: low, perfect, high)` });
+      continue;
+    }
+    valid.push({ ...r, _rowNum: rowNum });
+  }
+
+  const insertTrade = db.prepare(`
+    INSERT INTO trades (asset, direction, pnl, risk_reward, risk_amount,
+                        entry_time, why_entered, psychology, improvements, risk_management)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertOrIgnoreModel = db.prepare('INSERT OR IGNORE INTO entry_models (name) VALUES (?)');
+  const selectModel = db.prepare('SELECT id FROM entry_models WHERE name = ?');
+  const insertTem = db.prepare('INSERT OR IGNORE INTO trade_entry_models (trade_id, entry_model_id) VALUES (?, ?)');
+
+  let imported = 0;
+
+  const doImport = db.transaction(() => {
+    for (const r of valid) {
+      const result = insertTrade.run(
+        r.asset, r.direction, r.pnl,
+        r.risk_reward ? parseFloat(r.risk_reward) : null,
+        r.risk_amount ? parseFloat(r.risk_amount) : null,
+        r.entry_time,
+        r.why_entered || null,
+        r.psychology || null,
+        r.improvements || null,
+        r.risk_management || null
+      );
+      const tradeId = result.lastInsertRowid;
+
+      if (Array.isArray(r.entry_models)) {
+        for (const name of r.entry_models) {
+          const trimmed = name.trim();
+          if (!trimmed) continue;
+          insertOrIgnoreModel.run(trimmed);
+          const model = selectModel.get(trimmed);
+          if (model) insertTem.run(tradeId, model.id);
+        }
+      }
+
+      imported++;
+    }
+  });
+
+  doImport();
+  res.json({ imported, errors });
 });
 
 // Delete trade
 router.delete('/:id', (req, res) => {
+  revokeXP(req.params.id);
   const screenshots = db.prepare('SELECT filename FROM screenshots WHERE trade_id = ?').all(req.params.id);
   for (const ss of screenshots) {
     const fp = path.join(UPLOADS_DIR, ss.filename);

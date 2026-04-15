@@ -5,14 +5,17 @@ export default {
     extend: {
       colors: {
         surface: {
-          DEFAULT: '#0f1117',
-          card: '#161b27',
-          raised: '#1e2436',
-          border: '#2a3047',
+          DEFAULT: '#0a0a0a',
+          card: '#111111',
+          raised: '#1a1a1a',
+          border: '#2a2a2a',
         },
-        profit: '#38bdf8',   // sky-400
-        loss: '#fb923c',     // orange-400
-        accent: '#818cf8',   // indigo-400
+        profit: '#c6f135',
+        loss:   '#7c3aed',
+        accent: '#c6f135',
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
     },
   },

@@ -33,6 +33,16 @@ export const updateTrade = (id, formData) =>
 export const deleteTrade = (id) =>
   req(`/trades/${id}`, { method: 'DELETE' });
 
+export const importTrades = (trades) =>
+  req('/trades/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(trades),
+  });
+
+// Gamification
+export const getProfile = () => req('/gamification/profile');
+
 // Entry models
 export const getEntryModels = () => req('/entry-models');
 export const createEntryModel = (name) =>

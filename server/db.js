@@ -49,6 +49,64 @@ db.exec(`
     original_name TEXT    NOT NULL,
     created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
   );
+
+  -- Gamification tables
+  CREATE TABLE IF NOT EXISTS player_profile (
+    user_id         TEXT    PRIMARY KEY DEFAULT 'local',
+    xp              INTEGER NOT NULL DEFAULT 0,
+    level           INTEGER NOT NULL DEFAULT 1,
+    streak_days     INTEGER NOT NULL DEFAULT 0,
+    last_trade_date TEXT,
+    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS achievements (
+    key         TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL,
+    icon        TEXT NOT NULL,
+    xp_reward   INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS player_achievements (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         TEXT    NOT NULL DEFAULT 'local',
+    achievement_key TEXT    NOT NULL REFERENCES achievements(key),
+    trade_id        INTEGER REFERENCES trades(id) ON DELETE SET NULL,
+    unlocked_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(user_id, achievement_key)
+  );
+
+  CREATE TABLE IF NOT EXISTS xp_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    TEXT    NOT NULL DEFAULT 'local',
+    trade_id   INTEGER REFERENCES trades(id) ON DELETE SET NULL,
+    source     TEXT    NOT NULL,
+    amount     INTEGER NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+  );
 `);
+
+// Seed achievement definitions (idempotent)
+const seedAchievement = db.prepare(`
+  INSERT OR IGNORE INTO achievements (key, name, description, icon, xp_reward)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+const achievementSeeds = [
+  ['first_trade',     'First Blood',      'Log your first trade',                        '🩸', 100],
+  ['hat_trick',       'Hat Trick',        'Win 3 trades in a row',                       '🎩', 150],
+  ['deep_reflection', 'Deep Reflection',  'Complete all 3 notes on 10 different trades', '🧠', 200],
+  ['full_chart',      'Chart Surgeon',    'Upload all 3 screenshot types on one trade',  '🔬', 75],
+  ['perfect_risk',    'Iron Discipline',  'Log 10 trades with Perfect risk management',  '🛡️', 250],
+  ['setup_collector', 'Setup Collector',  'Create and use 5+ different entry models',    '🗂️', 100],
+  ['streak_7',        'Consistent',       'Maintain a 7-day logging streak',             '🔥', 300],
+  ['century',         'Century Club',     'Log 100 trades total',                        '💯', 500],
+  ['high_conviction', 'High Conviction',  'Log 5 trades with R:R ≥ 3.0',               '💎', 200],
+  ['diversified',     'Asset Explorer',   'Trade 5 different assets',                    '🗺️', 150],
+];
+
+for (const row of achievementSeeds) seedAchievement.run(...row);
 
 module.exports = { db, UPLOADS_DIR };

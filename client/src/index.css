@@ -1,51 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
 @layer base {
   body {
-    @apply bg-surface text-slate-100 font-sans antialiased;
+    @apply bg-surface text-white font-sans antialiased;
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2a3047 transparent;
+    scrollbar-color: #2a2a2a transparent;
   }
   *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
   }
   *::-webkit-scrollbar-thumb {
-    @apply bg-surface-border rounded;
+    @apply bg-surface-border rounded-full;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-indigo-500;
+    @apply btn bg-accent text-black hover:brightness-110 active:scale-95;
   }
   .btn-ghost {
-    @apply btn text-slate-300 hover:bg-surface-raised hover:text-slate-100;
+    @apply btn text-slate-400 hover:bg-surface-raised hover:text-white border border-surface-border;
+  }
+  .btn-secondary {
+    @apply btn text-slate-300 hover:bg-surface-raised hover:text-white border border-surface-border bg-surface-card;
   }
   .btn-danger {
-    @apply btn bg-surface-raised text-orange-400 hover:bg-orange-400/10 border border-orange-400/30;
+    @apply btn text-loss hover:bg-loss/10 border border-loss/20;
   }
   .card {
-    @apply bg-surface-card border border-surface-border rounded-xl p-5;
+    @apply bg-surface-card border border-surface-border rounded-2xl p-5;
   }
   .input {
-    @apply w-full bg-surface-raised border border-surface-border rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500
-           focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/60 transition;
+    @apply w-full bg-surface-raised border border-surface-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600
+           focus:outline-none focus:ring-1 focus:ring-accent/60 focus:border-accent/50 transition-all duration-150;
   }
   .label {
-    @apply block text-xs font-medium text-slate-400 mb-1.5;
+    @apply block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide;
   }
   .pnl-positive {
     @apply text-profit font-medium;
   }
   .pnl-negative {
     @apply text-loss font-medium;
+  }
+
+  /* custom select styling */
+  select.input {
+    @apply cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+    background-repeat: no-repeat;
+    background-size: 1.2em;
+    padding-right: 2.4rem;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  select.input option {
+    background: #1a1a1a;
+    color: white;
+  }
+
+  input[type="date"].input,
+  input[type="datetime-local"].input {
+    color-scheme: dark;
   }
 }

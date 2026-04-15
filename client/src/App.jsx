@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import TradeList from './pages/TradeList';
 import TradeDetail from './pages/TradeDetail';
 import TradeForm from './pages/TradeForm';
+import Profile from './pages/Profile';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/trades/new" element={<TradeForm />} />
           <Route path="/trades/:id" element={<TradeDetail />} />
           <Route path="/trades/:id/edit" element={<TradeForm />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>
     </BrowserRouter>

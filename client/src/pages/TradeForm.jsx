@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, createTrade, updateTrade } from '../api';
+import XPToast from '../components/XPToast';
 
-const ASSETS = ['MNQ', 'NQ', 'MES', 'ES', 'MYM', 'YM', 'M2K', 'RTY', 'MCL', 'CL', 'MGC', 'GC', 'SI', 'ZB', 'ZN'];
+const ASSETS = ['NQ', 'MNQ', 'ES', 'MES', 'NQ Backtest', 'MNQ Backtest', 'ES Backtest', 'MES Backtest'];
 
 const EMPTY = {
   asset: '', direction: 'long', pnl: '',
@@ -27,6 +28,8 @@ export default function TradeForm() {
   const [dailyBiasFiles, setDailyBiasFiles] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+  const [pendingNav, setPendingNav] = useState(null);
 
   const ltfRef = useRef();
   const htfRef = useRef();
@@ -103,24 +106,42 @@ export default function TradeForm() {
       dailyBiasFiles.forEach(f => fd.append('daily_bias_screenshots', f));
 
       const result = isEdit ? await updateTrade(id, fd) : await createTrade(fd);
-      navigate(`/trades/${result.id}`);
+      setSaving(false);
+      const gam = result.gamification;
+      const xpChange = gam?.xpAwarded ?? gam?.xpDelta ?? 0;
+      const hasAchievements = (gam?.unlockedAchievements?.length ?? 0) > 0;
+      if (gam && (xpChange !== 0 || hasAchievements)) {
+        setToast(gam);
+        setPendingNav(`/trades/${result.id}`);
+      } else {
+        navigate(`/trades/${result.id}`);
+      }
     } catch (err) {
       setError(err.message);
-      setSaving(false);
+      setSaving(false); // only reached on error; success path sets it false before toast
     }
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Link to={isEdit ? `/trades/${id}` : '/trades'} className="text-slate-500 hover:text-slate-300 text-sm">← Back</Link>
-        <h1 className="text-xl font-semibold text-slate-100">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
+    <div className="p-8 max-w-3xl mx-auto">
+      <div className="flex items-center gap-3 mb-7">
+        <Link
+          to={isEdit ? `/trades/${id}` : '/trades'}
+          className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </Link>
+        <span className="text-surface-border">·</span>
+        <h1 className="text-2xl font-semibold text-white">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Core fields */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Trade Info</h2>
+          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Trade Info</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Asset *">
               <select className="input" value={fields.asset} onChange={e => set('asset', e.target.value)} required>
@@ -167,7 +188,7 @@ export default function TradeForm() {
 
         {/* Entry Models */}
         <div className="card space-y-3">
-          <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Setup / Entry Models</h2>
+          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Setup / Entry Models</h2>
           {models.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {models.map(m => {
@@ -177,10 +198,10 @@ export default function TradeForm() {
                     <button
                       type="button"
                       onClick={() => toggleModel(m.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 ${
                         active
-                          ? 'bg-accent text-white border-accent'
-                          : 'bg-transparent text-slate-400 border-surface-border hover:border-accent/50'
+                          ? 'bg-accent text-black border-accent'
+                          : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
                       }`}
                     >
                       {m.name}
@@ -215,7 +236,7 @@ export default function TradeForm() {
 
         {/* Notes */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Notes</h2>
+          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Notes</h2>
           <Field label="Why I Entered">
             <textarea className="input resize-none" rows={3} value={fields.why_entered}
               onChange={e => set('why_entered', e.target.value)} placeholder="Describe your entry reasoning…" />
@@ -232,7 +253,7 @@ export default function TradeForm() {
 
         {/* Screenshots */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Screenshots</h2>
+          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Screenshots</h2>
 
           {existingScreenshots.length > 0 && (
             <div className="space-y-3">
@@ -281,13 +302,17 @@ export default function TradeForm() {
 
         {error && <p className="text-loss text-sm">{error}</p>}
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex gap-3 justify-end pb-4">
           <Link to={isEdit ? `/trades/${id}` : '/trades'} className="btn-ghost">Cancel</Link>
           <button type="submit" disabled={saving} className="btn-primary">
             {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Trade'}
           </button>
         </div>
       </form>
+
+      {toast && pendingNav && (
+        <XPToast data={toast} onDismiss={() => navigate(pendingNav)} />
+      )}
     </div>
   );
 }
@@ -313,7 +338,7 @@ function UploadZone({ label, files, inputRef, onChange }) {
     <div>
       <p className="label">{label}</p>
       <div
-        className="border-2 border-dashed border-surface-border rounded-lg p-4 text-center cursor-pointer hover:border-accent/50 transition-colors"
+        className="border border-dashed border-surface-border rounded-xl p-5 text-center cursor-pointer hover:border-accent/40 hover:bg-surface-raised/30 transition-all duration-150"
         onClick={() => inputRef.current?.click()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => {
@@ -321,6 +346,9 @@ function UploadZone({ label, files, inputRef, onChange }) {
           onChange(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
         }}
       >
+        <svg className="w-5 h-5 text-slate-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
         <p className="text-sm text-slate-500">Click or drag images here</p>
         <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
       </div>
