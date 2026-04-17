@@ -1,45 +1,54 @@
 # Ascend — Trading Journal
 
-Osobní obchodní deník pro sledování trades, psychologie a výkonu.
+A personal trading journal for tracking trades, psychology, and performance.
 
 ---
 
-## Co budeš potřebovat
+## Requirements
 
-Nainstaluj si **Node.js** (verze 18 nebo novější) — stáhni na [nodejs.org](https://nodejs.org).
-
----
-
-## Spuštění — jedním kliknutím
-
-### 1. Stáhni projekt
-
-Klikni na zelené tlačítko **Code → Download ZIP**, rozbal archiv kamkoliv na počítači.
-
-### 2. Spusť aplikaci
-
-- **Windows** — dvakrát klikni na soubor `Spustit.bat`
-- **Mac / Linux** — dvakrát klikni na soubor `Spustit.sh`
-
-Při prvním spuštění se automaticky nainstaluje vše potřebné (může to chvíli trvat).
-Poté se automaticky otevře prohlížeč na adrese `http://localhost:5173`.
-
-### 3. Zastavení
-
-Zavři okno terminálu které se otevřelo, nebo stiskni **Ctrl + C**.
+Install **Node.js** (version 18 or newer) — download at [nodejs.org](https://nodejs.org).
 
 ---
 
-## Časté problémy
+## Getting started — one click
 
-**Prohlížeč se neotevřel automaticky**
-→ Otevři ručně: [http://localhost:5173](http://localhost:5173)
+### 1. Download the project
 
-**"Node.js není nainstalovaný"**
-→ Stáhni Node.js na [nodejs.org](https://nodejs.org), nainstaluj a spusť skript znovu.
+Click the green **Code → Download ZIP** button, extract the archive anywhere on your computer.
 
-**Stránka se nenačte**
-→ Ujisti se, že okno terminálu stále běží.
+### 2. Launch the app
 
-**Port je obsazený**
-→ Restartuj počítač a zkus znovu.
+- **Windows** — double-click `Start.bat`
+- **Mac / Linux** — double-click `Start.sh`
+
+On first launch, all dependencies are installed automatically (may take a moment).
+The app then opens in your browser at `http://localhost:5173`.
+
+### 3. Stop the app
+
+Close the terminal window that opened, or press **Ctrl + C**.
+
+---
+
+## Backup & restore
+
+To back up your data or move to a new version of the app:
+
+1. Go to the **Trades** page and click **Download** — saves a `.zip` file with all your trades and screenshots.
+2. On the new installation, click **Restore** and select the `.zip` file.
+
+---
+
+## Troubleshooting
+
+**Browser didn't open automatically**
+→ Open manually: [http://localhost:5173](http://localhost:5173)
+
+**"Node.js is not installed"**
+→ Download Node.js from [nodejs.org](https://nodejs.org), install it, and run the script again.
+
+**Page won't load**
+→ Make sure the terminal window is still running.
+
+**Port already in use**
+→ Restart your computer and try again.

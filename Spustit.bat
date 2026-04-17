@@ -8,42 +8,42 @@ echo  ║     Ascend - Trading Journal     ║
 echo  ╚══════════════════════════════════╝
 echo.
 
-:: Zkontroluj Node.js
+:: Check Node.js
 node -v >nul 2>&1
 if %errorlevel% neq 0 (
-    echo  [CHYBA] Node.js neni nainstalovan!
+    echo  [ERROR] Node.js is not installed!
     echo.
-    echo  Stahnete Node.js na: https://nodejs.org
-    echo  Nainstalujte a spustte tento soubor znovu.
+    echo  Download Node.js at: https://nodejs.org
+    echo  Install it and run this file again.
     echo.
     pause
     exit /b 1
 )
 
-echo  Node.js nalezen.
+echo  Node.js found.
 
-:: Nainstaluj zavislosti pokud chybi
+:: Install dependencies if missing
 if not exist "node_modules" (
-    echo  Instalace zavislosti ^(jen prvni spusteni^)...
+    echo  Installing dependencies (first run only)...
     call npm install
 )
 if not exist "client\node_modules" (
-    echo  Instalace klientskych zavislosti...
+    echo  Installing client dependencies...
     cd client && call npm install && cd ..
 )
 if not exist "server\node_modules" (
-    echo  Instalace serverovych zavislosti...
+    echo  Installing server dependencies...
     cd server && call npm install && cd ..
 )
 
 echo.
-echo  Spoustim aplikaci...
-echo  Az se nacte, otevre se prohlizec automaticky.
-echo  Pro zastaveni zavri toto okno.
+echo  Starting app...
+echo  Once ready, the browser will open automatically.
+echo  Close this window to stop.
 echo.
 
-:: Počkej 3 sekundy a otevři prohlížeč
+:: Wait 4 seconds then open browser
 start "" cmd /c "timeout /t 4 >nul && start http://localhost:5173"
 
-:: Spusť aplikaci
+:: Start the app
 npm run dev
