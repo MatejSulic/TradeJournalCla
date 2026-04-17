@@ -42,7 +42,7 @@ router.get('/', (req, res) => {
 
 // Restore from ZIP backup
 router.post('/', upload.single('backup'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Žádný soubor nebyl nahrán' });
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   const tempPath = req.file.path;
 
@@ -51,20 +51,20 @@ router.post('/', upload.single('backup'), (req, res) => {
     zip = new AdmZip(tempPath);
   } catch (e) {
     fs.unlinkSync(tempPath);
-    return res.status(400).json({ error: 'Soubor není platný ZIP archiv' });
+    return res.status(400).json({ error: 'File is not a valid ZIP archive' });
   }
 
   const dbEntry = zip.getEntry('journal.db');
   if (!dbEntry) {
     fs.unlinkSync(tempPath);
-    return res.status(400).json({ error: 'ZIP neobsahuje journal.db — není to záloha Ascend' });
+    return res.status(400).json({ error: 'ZIP does not contain journal.db — not an Ascend backup' });
   }
 
   // Validate it's a real SQLite file
   const dbBuf = dbEntry.getData();
   if (!dbBuf.slice(0, 15).toString('utf8').startsWith('SQLite format 3')) {
     fs.unlinkSync(tempPath);
-    return res.status(400).json({ error: 'journal.db v ZIPu není platná SQLite databáze' });
+    return res.status(400).json({ error: 'journal.db in ZIP is not a valid SQLite database' });
   }
 
   try {
@@ -93,7 +93,7 @@ router.post('/', upload.single('backup'), (req, res) => {
   } catch (e) {
     try { reinitDb(); } catch (_) {}
     fs.unlinkSync(tempPath);
-    res.status(500).json({ error: `Obnova selhala: ${e.message}` });
+    res.status(500).json({ error: `Restore failed: ${e.message}` });
   }
 });
 

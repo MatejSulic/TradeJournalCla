@@ -65,7 +65,7 @@ export default function TradeList() {
       window.location.reload();
     } catch (err) {
       setRestoring(false);
-      setBackupMsg({ type: 'error', text: `Obnova selhala: ${err.message}` });
+      setBackupMsg({ type: 'error', text: `Restore failed: ${err.message}` });
     }
   }
 
@@ -84,13 +84,13 @@ export default function TradeList() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Záloha
+            Download Data
           </button>
-          <button onClick={() => restoreRef.current?.click()} className="btn-secondary" disabled={restoring} title="Obnovit databázi ze zálohy">
+          <button onClick={() => restoreRef.current?.click()} className="btn-secondary" disabled={restoring} title="Restore database from backup">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
             </svg>
-            {restoring ? 'Obnovuji…' : 'Obnovit'}
+            {restoring ? 'Restoring…' : 'Restore Data'}
           </button>
           <input ref={restoreRef} type="file" accept=".zip" className="hidden" onChange={handleRestoreSelect} />
           <Link to="/trades/new" className="btn-primary">
@@ -106,14 +106,14 @@ export default function TradeList() {
       {pendingRestore && (
         <div className="card border-loss/30 bg-loss/5 flex items-center justify-between gap-4">
           <p className="text-sm text-white">
-            Soubor <span className="font-semibold text-loss">{pendingRestore.name}</span> nahradí celou databázi. Tato akce je nevratná. Pokračovat?
+            File <span className="font-semibold text-loss">{pendingRestore.name}</span> will replace the entire database. This action is irreversible. Continue?
           </p>
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={() => setPendingRestore(null)} className="btn-ghost text-xs py-1.5 px-3">
-              Zrušit
+              Cancel
             </button>
             <button onClick={confirmRestore} className="btn-primary text-xs py-1.5 px-3">
-              Obnovit databázi
+              Restore Database
             </button>
           </div>
         </div>

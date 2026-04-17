@@ -35,7 +35,7 @@ export const deleteTrade = (id) =>
 
 export async function downloadBackup() {
   const res = await fetch('/api/backup');
-  if (!res.ok) throw new Error('Stažení zálohy selhalo');
+  if (!res.ok) throw new Error('Backup download failed');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
