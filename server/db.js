@@ -8,10 +8,32 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const db = new Database(DB_PATH);
+let _db = new Database(DB_PATH);
 
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+function initPragmas() {
+  _db.pragma('journal_mode = WAL');
+  _db.pragma('foreign_keys = ON');
+}
+
+function reinitDb() {
+  _db = new Database(DB_PATH);
+  initPragmas();
+}
+
+initPragmas();
+
+// Proxy so all consumers keep their existing `db.prepare(...)` calls working
+// even after reinitDb() swaps the underlying instance.
+const db = new Proxy({}, {
+  get(_, prop) {
+    const val = _db[prop];
+    return typeof val === 'function' ? val.bind(_db) : val;
+  },
+  set(_, prop, value) {
+    _db[prop] = value;
+    return true;
+  },
+});
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS entry_models (
@@ -109,4 +131,4 @@ const achievementSeeds = [
 
 for (const row of achievementSeeds) seedAchievement.run(...row);
 
-module.exports = { db, UPLOADS_DIR };
+module.exports = { db, UPLOADS_DIR, DB_PATH, reinitDb };

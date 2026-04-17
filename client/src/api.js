@@ -33,12 +33,28 @@ export const updateTrade = (id, formData) =>
 export const deleteTrade = (id) =>
   req(`/trades/${id}`, { method: 'DELETE' });
 
-export const importTrades = (trades) =>
-  req('/trades/import', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(trades),
-  });
+export async function downloadBackup() {
+  const res = await fetch('/api/backup');
+  if (!res.ok) throw new Error('Stažení zálohy selhalo');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ascend_backup_${new Date().toISOString().slice(0, 10)}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function restoreBackup(file) {
+  const formData = new FormData();
+  formData.append('backup', file);
+  const res = await fetch('/api/backup', { method: 'POST', body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json();
+}
 
 // Gamification
 export const getProfile = () => req('/gamification/profile');

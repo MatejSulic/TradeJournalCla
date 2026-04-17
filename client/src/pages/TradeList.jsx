@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
-import { getTrades, getEntryModels, importTrades } from '../api';
+import { getTrades, getEntryModels, downloadBackup, restoreBackup } from '../api';
 
 const PNL_STYLE = {
   win:       'bg-profit/10 text-profit border border-profit/20',
@@ -14,10 +14,11 @@ export default function TradeList() {
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
   const [filters, setFilters] = useState({ asset: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' });
-  const [importMsg, setImportMsg] = useState(null);
-  const [pendingImport, setPendingImport] = useState(null);
+  const [backupMsg, setBackupMsg] = useState(null);
+  const [pendingRestore, setPendingRestore] = useState(null);
+  const [restoring, setRestoring] = useState(false);
   const [page, setPage] = useState(1);
-  const importRef = useRef(null);
+  const restoreRef = useRef(null);
 
   const PAGE_SIZE = 25;
 
@@ -38,63 +39,33 @@ export default function TradeList() {
   const totalPages = Math.max(1, Math.ceil(trades.length / PAGE_SIZE));
   const pageTrades = trades.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  function exportToCSV() {
-    const HEADERS = ['asset','direction','pnl','risk_reward','risk_amount','entry_time',
-                     'why_entered','psychology','improvements','risk_management','entry_models'];
-    const escape = (v) => {
-      if (v == null) return '';
-      const s = String(v);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
-    };
-    const lines = [HEADERS.join(',')];
-    for (const t of trades) {
-      const models = (t.entry_models || []).map(m => m.name).join(';');
-      lines.push([
-        escape(t.asset), escape(t.direction), escape(t.pnl),
-        escape(t.risk_reward), escape(t.risk_amount), escape(t.entry_time),
-        escape(t.why_entered), escape(t.psychology), escape(t.improvements),
-        escape(t.risk_management), escape(models),
-      ].join(','));
+  async function handleDownloadBackup() {
+    try {
+      await downloadBackup();
+    } catch (err) {
+      setBackupMsg({ type: 'error', text: err.message });
     }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `trades_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
-  async function handleImport(e) {
+  function handleRestoreSelect(e) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    setImportMsg(null);
-    const text = await file.text();
-    const cleaned = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
-    const rows = parseCSV(cleaned);
-    if (rows.length === 0) {
-      setImportMsg({ type: 'error', text: 'CSV soubor neobsahuje žádné řádky.' });
-      return;
-    }
-    setPendingImport(rows);
+    setBackupMsg(null);
+    setPendingRestore(file);
   }
 
-  async function confirmImport() {
-    if (!pendingImport) return;
-    const rows = pendingImport;
-    setPendingImport(null);
+  async function confirmRestore() {
+    if (!pendingRestore) return;
+    const file = pendingRestore;
+    setPendingRestore(null);
+    setRestoring(true);
     try {
-      const { imported, errors } = await importTrades(rows);
-      let msg = `Importováno ${imported} obchod${imported === 1 ? '' : imported < 5 ? 'y' : 'ů'}.`;
-      if (errors.length) msg += ` ${errors.length} řádek přeskočen: ${errors.map(e => `Řádek ${e.row}: ${e.message}`).join('; ')}`;
-      setImportMsg({ type: errors.length && imported === 0 ? 'error' : 'success', text: msg });
-      if (imported > 0) load();
+      await restoreBackup(file);
+      window.location.reload();
     } catch (err) {
-      setImportMsg({ type: 'error', text: `Import selhal: ${err.message}` });
+      setRestoring(false);
+      setBackupMsg({ type: 'error', text: `Obnova selhala: ${err.message}` });
     }
   }
 
@@ -109,19 +80,19 @@ export default function TradeList() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportToCSV} className="btn-secondary" disabled={trades.length === 0} title="Exportovat zobrazené obchody do CSV">
+          <button onClick={handleDownloadBackup} className="btn-secondary" title="Stáhnout zálohu databáze">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Export CSV
+            Záloha
           </button>
-          <button onClick={() => importRef.current?.click()} className="btn-secondary" title="Importovat obchody z CSV">
+          <button onClick={() => restoreRef.current?.click()} className="btn-secondary" disabled={restoring} title="Obnovit databázi ze zálohy">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
             </svg>
-            Import CSV
+            {restoring ? 'Obnovuji…' : 'Obnovit'}
           </button>
-          <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          <input ref={restoreRef} type="file" accept=".zip" className="hidden" onChange={handleRestoreSelect} />
           <Link to="/trades/new" className="btn-primary">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -131,28 +102,28 @@ export default function TradeList() {
         </div>
       </div>
 
-      {/* Import confirmation */}
-      {pendingImport && (
-        <div className="card border-accent/30 bg-accent/5 flex items-center justify-between gap-4">
+      {/* Restore confirmation */}
+      {pendingRestore && (
+        <div className="card border-loss/30 bg-loss/5 flex items-center justify-between gap-4">
           <p className="text-sm text-white">
-            Načteno <span className="font-semibold text-accent">{pendingImport.length}</span> obchod{pendingImport.length === 1 ? '' : pendingImport.length < 5 ? 'y' : 'ů'} z CSV. Chceš je importovat?
+            Soubor <span className="font-semibold text-loss">{pendingRestore.name}</span> nahradí celou databázi. Tato akce je nevratná. Pokračovat?
           </p>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setPendingImport(null)} className="btn-ghost text-xs py-1.5 px-3">
+            <button onClick={() => setPendingRestore(null)} className="btn-ghost text-xs py-1.5 px-3">
               Zrušit
             </button>
-            <button onClick={confirmImport} className="btn-primary text-xs py-1.5 px-3">
-              Importovat
+            <button onClick={confirmRestore} className="btn-primary text-xs py-1.5 px-3">
+              Obnovit databázi
             </button>
           </div>
         </div>
       )}
 
-      {/* Import result message */}
-      {importMsg && (
-        <div className={`text-sm px-4 py-3 rounded-lg border ${importMsg.type === 'success' ? 'bg-profit/10 text-profit border-profit/20' : 'bg-loss/10 text-loss border-loss/20'}`}>
-          {importMsg.text}
-          <button onClick={() => setImportMsg(null)} className="ml-3 opacity-60 hover:opacity-100 text-xs">✕</button>
+      {/* Backup/restore message */}
+      {backupMsg && (
+        <div className={`text-sm px-4 py-3 rounded-lg border ${backupMsg.type === 'success' ? 'bg-profit/10 text-profit border-profit/20' : 'bg-loss/10 text-loss border-loss/20'}`}>
+          {backupMsg.text}
+          <button onClick={() => setBackupMsg(null)} className="ml-3 opacity-60 hover:opacity-100 text-xs">✕</button>
         </div>
       )}
 
@@ -322,44 +293,4 @@ export default function TradeList() {
 
 function fmtDate(str) {
   try { return format(parseISO(str), 'MMM d, yyyy HH:mm'); } catch { return str; }
-}
-
-// Minimal RFC-4180-compatible CSV parser
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = splitCSVLine(lines[0]);
-  const result = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const vals = splitCSVLine(lines[i]);
-    const obj = {};
-    headers.forEach((h, idx) => { obj[h.trim()] = vals[idx] ?? ''; });
-    // entry_models: split by semicolon into array
-    if (typeof obj.entry_models === 'string') {
-      obj.entry_models = obj.entry_models ? obj.entry_models.split(';').map(s => s.trim()).filter(Boolean) : [];
-    }
-    result.push(obj);
-  }
-  return result;
-}
-
-function splitCSVLine(line) {
-  const result = [];
-  let cur = '';
-  let inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuote) {
-      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-      else if (ch === '"') { inQuote = false; }
-      else { cur += ch; }
-    } else {
-      if (ch === '"') { inQuote = true; }
-      else if (ch === ',') { result.push(cur); cur = ''; }
-      else { cur += ch; }
-    }
-  }
-  result.push(cur);
-  return result;
 }
