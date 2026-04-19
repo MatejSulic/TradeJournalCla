@@ -44,6 +44,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS trades (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     asset            TEXT    NOT NULL,
+    session_type     TEXT    NOT NULL DEFAULT 'live',
     direction        TEXT    NOT NULL CHECK(direction IN ('long', 'short')),
     pnl              TEXT    NOT NULL CHECK(pnl IN ('win', 'loss', 'breakeven')),
     risk_reward      REAL,
@@ -108,6 +109,18 @@ db.exec(`
     amount     INTEGER NOT NULL,
     created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
   );
+`);
+
+// Migration: add session_type column if it doesn't exist yet (existing DBs)
+try {
+  db.exec(`ALTER TABLE trades ADD COLUMN session_type TEXT NOT NULL DEFAULT 'live'`);
+} catch (_) { /* already exists */ }
+
+// Migrate legacy "X Backtest" asset names to session_type = 'backtest'
+db.exec(`
+  UPDATE trades
+  SET session_type = 'backtest', asset = REPLACE(asset, ' Backtest', '')
+  WHERE asset LIKE '% Backtest'
 `);
 
 // Seed achievement definitions (idempotent)

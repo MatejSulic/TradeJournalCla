@@ -3,10 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, createTrade, updateTrade } from '../api';
 import XPToast from '../components/XPToast';
 
-const ASSETS = ['NQ', 'MNQ', 'ES', 'MES', 'NQ Backtest', 'MNQ Backtest', 'ES Backtest', 'MES Backtest'];
+const ASSETS = ['NQ', 'MNQ', 'ES', 'MES'];
 
 const EMPTY = {
-  asset: '', direction: 'long', pnl: '',
+  asset: '', session_type: 'live', direction: 'long', pnl: '',
   risk_reward: '', risk_amount: '', entry_time: '',
   why_entered: '', psychology: '', improvements: '', risk_management: '',
 };
@@ -41,6 +41,7 @@ export default function TradeForm() {
       getTrade(id).then(t => {
         setFields({
           asset: t.asset ?? '',
+          session_type: t.session_type ?? 'live',
           direction: t.direction ?? 'long',
           pnl: t.pnl ?? '',
           risk_reward: t.risk_reward ?? '',
@@ -141,7 +142,27 @@ export default function TradeForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Core fields */}
         <div className="card space-y-4">
-          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Trade Info</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Trade Info</h2>
+            <div className="flex rounded-lg border border-surface-border overflow-hidden">
+              {['live', 'backtest'].map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => set('session_type', t)}
+                  className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                    fields.session_type === t
+                      ? t === 'live'
+                        ? 'bg-profit text-black'
+                        : 'bg-accent text-black'
+                      : 'text-slate-500 hover:text-white'
+                  }`}
+                >
+                  {t === 'live' ? 'Live' : 'Backtest'}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Asset *">
               <select className="input" value={fields.asset} onChange={e => set('asset', e.target.value)} required>

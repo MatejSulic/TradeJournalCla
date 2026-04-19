@@ -56,6 +56,11 @@ export default function TradeDetail() {
           </Link>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold text-white">{trade.asset}</h1>
+            {trade.session_type === 'backtest' && (
+              <span className="text-xs font-semibold uppercase px-2.5 py-1 rounded-lg border bg-accent/10 text-accent border-accent/20">
+                Backtest
+              </span>
+            )}
             <span className={`text-xs font-semibold uppercase px-2.5 py-1 rounded-lg border ${trade.direction === 'long' ? 'bg-profit/10 text-profit border-profit/20' : 'bg-loss/10 text-loss border-loss/20'}`}>
               {trade.direction}
             </span>

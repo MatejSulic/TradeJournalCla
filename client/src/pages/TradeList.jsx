@@ -13,7 +13,7 @@ export default function TradeList() {
   const navigate = useNavigate();
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
-  const [filters, setFilters] = useState({ asset: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' });
+  const [filters, setFilters] = useState({ asset: '', session_type: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' });
   const [backupMsg, setBackupMsg] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
   const [restoring, setRestoring] = useState(false);
@@ -134,16 +134,36 @@ export default function TradeList() {
           {hasFilters && (
             <button
               className="text-xs text-accent hover:underline"
-              onClick={() => setFilters({ asset: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
+              onClick={() => setFilters({ asset: '', session_type: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
             >
               Clear all
             </button>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
+          <div className="flex rounded-lg border border-surface-border overflow-hidden">
+            {[['', 'All'], ['live', 'Live'], ['backtest', 'Backtest']].map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => set('session_type', val)}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  filters.session_type === val
+                    ? val === 'live'
+                      ? 'bg-profit text-black'
+                      : val === 'backtest'
+                        ? 'bg-accent text-black'
+                        : 'bg-surface-raised text-white'
+                    : 'text-slate-500 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <select className="input w-32" value={filters.asset} onChange={e => set('asset', e.target.value)}>
             <option value="">All assets</option>
-            {['NQ','MNQ','ES','MES','NQ Backtest','MNQ Backtest','ES Backtest','MES Backtest'].map(a => (
+            {['NQ','MNQ','ES','MES'].map(a => (
               <option key={a} value={a}>{a}</option>
             ))}
           </select>
@@ -177,6 +197,7 @@ export default function TradeList() {
             <tr className="border-b border-surface-border">
               <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Date / Time</th>
               <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Asset</th>
+              <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Type</th>
               <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Dir</th>
               <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Setup</th>
               <th className="px-5 py-4 text-right text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Risk</th>
@@ -188,7 +209,7 @@ export default function TradeList() {
           <tbody>
             {trades.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-16 text-center">
+                <td colSpan={9} className="px-5 py-16 text-center">
                   <p className="text-slate-500 text-sm mb-2">No trades found.</p>
                   <Link to="/trades/new" className="text-xs text-accent hover:underline">Add your first trade →</Link>
                 </td>
@@ -202,6 +223,9 @@ export default function TradeList() {
               >
                 <td className="px-5 py-3.5 text-slate-500 group-hover:text-slate-300 transition-colors">{fmtDate(t.entry_time)}</td>
                 <td className="px-5 py-3.5 text-white font-semibold">{t.asset}</td>
+                <td className="px-5 py-3.5 text-slate-500">
+                  {t.session_type === 'backtest' ? 'Backtest' : 'Live'}
+                </td>
                 <td className={`px-5 py-3.5 capitalize text-xs font-semibold ${t.direction === 'long' ? 'text-profit' : 'text-loss'}`}>
                   {t.direction}
                 </td>
