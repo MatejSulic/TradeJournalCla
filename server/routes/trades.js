@@ -34,7 +34,7 @@ function hydrateTrade(trade) {
 
 // List all trades
 router.get('/', (req, res) => {
-  const { asset, direction, entry_model_id, from, to, pnl, session_type } = req.query;
+  const { asset, direction, entry_model_id, from, to, pnl, session_type, series_id } = req.query;
   let sql = 'SELECT DISTINCT t.* FROM trades t';
   const joins = [];
   const where = ['1=1'];
@@ -59,6 +59,7 @@ router.get('/', (req, res) => {
 
   if (asset)        { sql += ' AND t.asset = ?';          params.push(asset); }
   if (session_type) { sql += ' AND t.session_type = ?';   params.push(session_type); }
+  if (series_id)    { sql += ' AND t.series_id = ?';      params.push(Number(series_id)); }
   if (direction)    { sql += ' AND t.direction = ?';      params.push(direction); }
   if (pnl)          { sql += ' AND t.pnl = ?';            params.push(pnl); }
   if (from)         { sql += ' AND t.entry_time >= ?';    params.push(from); }
@@ -106,7 +107,11 @@ router.get('/equity', (_req, res) => {
 
 // Get single trade with screenshots
 router.get('/:id', (req, res) => {
-  const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
+  const trade = db.prepare(`
+    SELECT t.*, s.name as series_name FROM trades t
+    LEFT JOIN series s ON s.id = t.series_id
+    WHERE t.id = ?
+  `).get(req.params.id);
   if (!trade) return res.status(404).json({ error: 'not found' });
   const screenshots = db.prepare('SELECT * FROM screenshots WHERE trade_id = ? ORDER BY type, created_at').all(trade.id);
   res.json({ ...hydrateTrade(trade), screenshots });
@@ -114,20 +119,22 @@ router.get('/:id', (req, res) => {
 
 // Create trade
 router.post('/', uploadFields, (req, res) => {
-  const { asset, session_type, direction, pnl, risk_reward, risk_amount, entry_time,
+  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, entry_time,
           why_entered, psychology, improvements, risk_management, entry_model_ids } = req.body;
 
   if (!asset || !direction || !pnl || !entry_time)
     return res.status(400).json({ error: 'asset, direction, pnl, entry_time required' });
 
   const insert = db.prepare(`
-    INSERT INTO trades (asset, session_type, direction, pnl, risk_reward, risk_amount,
+    INSERT INTO trades (asset, session_type, series_id, direction, pnl, risk_reward, risk_amount,
                         entry_time, why_entered, psychology, improvements, risk_management)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = insert.run(
-    asset, session_type || 'live', direction, pnl,
+    asset, session_type || 'live',
+    series_id ? Number(series_id) : null,
+    direction, pnl,
     risk_reward ? parseFloat(risk_reward) : null,
     risk_amount ? parseFloat(risk_amount) : null,
     entry_time,
@@ -151,19 +158,21 @@ router.put('/:id', uploadFields, (req, res) => {
   const trade = db.prepare('SELECT id FROM trades WHERE id = ?').get(req.params.id);
   if (!trade) return res.status(404).json({ error: 'not found' });
 
-  const { asset, session_type, direction, pnl, risk_reward, risk_amount, entry_time,
+  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, entry_time,
           why_entered, psychology, improvements, risk_management,
           delete_screenshot_ids, entry_model_ids } = req.body;
 
   db.prepare(`
     UPDATE trades SET
-      asset = ?, session_type = ?, direction = ?, pnl = ?, risk_reward = ?,
+      asset = ?, session_type = ?, series_id = ?, direction = ?, pnl = ?, risk_reward = ?,
       risk_amount = ?, entry_time = ?, why_entered = ?, psychology = ?,
       improvements = ?, risk_management = ?,
       updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = ?
   `).run(
-    asset, session_type || 'live', direction, pnl,
+    asset, session_type || 'live',
+    series_id ? Number(series_id) : null,
+    direction, pnl,
     risk_reward ? parseFloat(risk_reward) : null,
     risk_amount ? parseFloat(risk_amount) : null,
     entry_time,

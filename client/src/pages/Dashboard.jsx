@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import { getTrades, getEntryModels } from '../api';
+import { getTrades, getEntryModels, getSeries } from '../api';
 import StatCard from '../components/StatCard';
 
 const COLOR_MAIN = '#c6f135';
@@ -21,13 +21,14 @@ const PNL_STYLE = {
 export default function Dashboard() {
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
-  const [filters, setFilters] = useState({ asset: '', session_type: '', direction: '', pnl: '', entry_model_id: [], from: '', to: '' });
+  const [seriesList, setSeriesList] = useState([]);
+  const [filters, setFilters] = useState({ asset: '', session_type: '', series_id: '', direction: '', pnl: '', entry_model_id: [], from: '', to: '' });
 
   const load = useCallback(() => {
     getTrades(filters).then(setTrades);
   }, [filters]);
 
-  useEffect(() => { getEntryModels().then(setModels); }, []);
+  useEffect(() => { getEntryModels().then(setModels); getSeries().then(setSeriesList); }, []);
   useEffect(() => { load(); }, [load]);
 
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
@@ -103,7 +104,7 @@ export default function Dashboard() {
           {hasFilters && (
             <button
               className="text-xs text-accent hover:underline"
-              onClick={() => setFilters({ asset: '', session_type: '', direction: '', pnl: '', entry_model_id: [], from: '', to: '' })}
+              onClick={() => setFilters({ asset: '', session_type: '', series_id: '', direction: '', pnl: '', entry_model_id: [], from: '', to: '' })}
             >
               Clear all
             </button>
@@ -135,6 +136,10 @@ export default function Dashboard() {
             {['NQ','MNQ','ES','MES'].map(a => (
               <option key={a} value={a}>{a}</option>
             ))}
+          </select>
+          <select className="input w-40" value={filters.series_id} onChange={e => set('series_id', e.target.value)}>
+            <option value="">All series</option>
+            {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <select className="input w-36" value={filters.direction} onChange={e => set('direction', e.target.value)}>
             <option value="">All directions</option>

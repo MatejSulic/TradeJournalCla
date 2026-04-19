@@ -68,7 +68,12 @@ export default function TradeDetail() {
               {trade.pnl}
             </span>
           </div>
-          <p className="text-sm text-slate-500">{fmtDate(trade.entry_time)} · {entryDay}</p>
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <span>{fmtDate(trade.entry_time)} · {entryDay}</span>
+            {trade.series_name && (
+              <span className="text-accent">· {trade.series_name}</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Link to={`/trades/${id}/edit`} className="btn-ghost text-sm">Edit</Link>

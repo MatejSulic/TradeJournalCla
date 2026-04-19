@@ -12,6 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
+app.use('/api/series', require('./routes/series'));
 app.use('/api/entry-models', require('./routes/entryModels'));
 app.use('/api/trades', require('./routes/trades'));
 app.use('/api/gamification', require('./routes/gamification'));

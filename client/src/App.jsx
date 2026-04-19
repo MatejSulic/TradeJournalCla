@@ -5,6 +5,7 @@ import TradeList from './pages/TradeList';
 import TradeDetail from './pages/TradeDetail';
 import TradeForm from './pages/TradeForm';
 import Profile from './pages/Profile';
+import SeriesPage from './pages/Series';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/trades/new" element={<TradeForm />} />
           <Route path="/trades/:id" element={<TradeDetail />} />
           <Route path="/trades/:id/edit" element={<TradeForm />} />
+          <Route path="/series" element={<SeriesPage />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>

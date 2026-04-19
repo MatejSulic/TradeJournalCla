@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
-import { getTrades, getEntryModels, downloadBackup, restoreBackup } from '../api';
+import { getTrades, getEntryModels, getSeries, downloadBackup, restoreBackup } from '../api';
 
 const PNL_STYLE = {
   win:       'bg-profit/10 text-profit border border-profit/20',
@@ -11,9 +11,14 @@ const PNL_STYLE = {
 
 export default function TradeList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
-  const [filters, setFilters] = useState({ asset: '', session_type: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' });
+  const [seriesList, setSeriesList] = useState([]);
+  const [filters, setFilters] = useState({
+    asset: '', session_type: '', series_id: searchParams.get('series_id') || '',
+    direction: '', pnl: '', entry_model_id: '', from: '', to: '',
+  });
   const [backupMsg, setBackupMsg] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
   const [restoring, setRestoring] = useState(false);
@@ -28,6 +33,7 @@ export default function TradeList() {
 
   useEffect(() => {
     getEntryModels().then(setModels);
+    getSeries().then(setSeriesList);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -134,7 +140,7 @@ export default function TradeList() {
           {hasFilters && (
             <button
               className="text-xs text-accent hover:underline"
-              onClick={() => setFilters({ asset: '', session_type: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
+              onClick={() => setFilters({ asset: '', session_type: '', series_id: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
             >
               Clear all
             </button>
@@ -166,6 +172,10 @@ export default function TradeList() {
             {['NQ','MNQ','ES','MES'].map(a => (
               <option key={a} value={a}>{a}</option>
             ))}
+          </select>
+          <select className="input w-40" value={filters.series_id} onChange={e => set('series_id', e.target.value)}>
+            <option value="">All series</option>
+            {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <select className="input w-36" value={filters.direction} onChange={e => set('direction', e.target.value)}>
             <option value="">All directions</option>

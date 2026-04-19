@@ -15,13 +15,6 @@ function initPragmas() {
   _db.pragma('foreign_keys = ON');
 }
 
-function reinitDb() {
-  _db = new Database(DB_PATH);
-  initPragmas();
-}
-
-initPragmas();
-
 // Proxy so all consumers keep their existing `db.prepare(...)` calls working
 // even after reinitDb() swaps the underlying instance.
 const db = new Proxy({}, {
@@ -35,93 +28,112 @@ const db = new Proxy({}, {
   },
 });
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS entry_models (
-    id   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
-  );
+function runSchema() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS series (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT    NOT NULL UNIQUE,
+      description TEXT,
+      created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS trades (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    asset            TEXT    NOT NULL,
-    session_type     TEXT    NOT NULL DEFAULT 'live',
-    direction        TEXT    NOT NULL CHECK(direction IN ('long', 'short')),
-    pnl              TEXT    NOT NULL CHECK(pnl IN ('win', 'loss', 'breakeven')),
-    risk_reward      REAL,
-    risk_amount      REAL,
-    entry_time       TEXT    NOT NULL,
-    why_entered      TEXT,
-    psychology       TEXT,
-    improvements     TEXT,
-    risk_management  TEXT    CHECK(risk_management IN ('low', 'perfect', 'high') OR risk_management IS NULL),
-    created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-  );
+    CREATE TABLE IF NOT EXISTS entry_models (
+      id   INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE
+    );
 
-  CREATE TABLE IF NOT EXISTS trade_entry_models (
-    trade_id        INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
-    entry_model_id  INTEGER NOT NULL REFERENCES entry_models(id) ON DELETE CASCADE,
-    PRIMARY KEY (trade_id, entry_model_id)
-  );
+    CREATE TABLE IF NOT EXISTS trades (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      asset            TEXT    NOT NULL,
+      session_type     TEXT    NOT NULL DEFAULT 'live',
+      series_id        INTEGER REFERENCES series(id) ON DELETE SET NULL,
+      direction        TEXT    NOT NULL CHECK(direction IN ('long', 'short')),
+      pnl              TEXT    NOT NULL CHECK(pnl IN ('win', 'loss', 'breakeven')),
+      risk_reward      REAL,
+      risk_amount      REAL,
+      entry_time       TEXT    NOT NULL,
+      why_entered      TEXT,
+      psychology       TEXT,
+      improvements     TEXT,
+      risk_management  TEXT    CHECK(risk_management IN ('low', 'perfect', 'high') OR risk_management IS NULL),
+      created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS screenshots (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    trade_id      INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
-    type          TEXT    NOT NULL CHECK(type IN ('ltf', 'htf', 'daily_bias')),
-    filename      TEXT    NOT NULL,
-    original_name TEXT    NOT NULL,
-    created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-  );
+    CREATE TABLE IF NOT EXISTS trade_entry_models (
+      trade_id        INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
+      entry_model_id  INTEGER NOT NULL REFERENCES entry_models(id) ON DELETE CASCADE,
+      PRIMARY KEY (trade_id, entry_model_id)
+    );
 
-  -- Gamification tables
-  CREATE TABLE IF NOT EXISTS player_profile (
-    user_id         TEXT    PRIMARY KEY DEFAULT 'local',
-    xp              INTEGER NOT NULL DEFAULT 0,
-    level           INTEGER NOT NULL DEFAULT 1,
-    streak_days     INTEGER NOT NULL DEFAULT 0,
-    last_trade_date TEXT,
-    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-  );
+    CREATE TABLE IF NOT EXISTS screenshots (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      trade_id      INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
+      type          TEXT    NOT NULL CHECK(type IN ('ltf', 'htf', 'daily_bias')),
+      filename      TEXT    NOT NULL,
+      original_name TEXT    NOT NULL,
+      created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS achievements (
-    key         TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    description TEXT NOT NULL,
-    icon        TEXT NOT NULL,
-    xp_reward   INTEGER NOT NULL DEFAULT 0
-  );
+    -- Gamification tables
+    CREATE TABLE IF NOT EXISTS player_profile (
+      user_id         TEXT    PRIMARY KEY DEFAULT 'local',
+      xp              INTEGER NOT NULL DEFAULT 0,
+      level           INTEGER NOT NULL DEFAULT 1,
+      streak_days     INTEGER NOT NULL DEFAULT 0,
+      last_trade_date TEXT,
+      created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
 
-  CREATE TABLE IF NOT EXISTS player_achievements (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id         TEXT    NOT NULL DEFAULT 'local',
-    achievement_key TEXT    NOT NULL REFERENCES achievements(key),
-    trade_id        INTEGER REFERENCES trades(id) ON DELETE SET NULL,
-    unlocked_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    UNIQUE(user_id, achievement_key)
-  );
+    CREATE TABLE IF NOT EXISTS achievements (
+      key         TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      description TEXT NOT NULL,
+      icon        TEXT NOT NULL,
+      xp_reward   INTEGER NOT NULL DEFAULT 0
+    );
 
-  CREATE TABLE IF NOT EXISTS xp_log (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    TEXT    NOT NULL DEFAULT 'local',
-    trade_id   INTEGER REFERENCES trades(id) ON DELETE SET NULL,
-    source     TEXT    NOT NULL,
-    amount     INTEGER NOT NULL,
-    created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-  );
-`);
+    CREATE TABLE IF NOT EXISTS player_achievements (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id         TEXT    NOT NULL DEFAULT 'local',
+      achievement_key TEXT    NOT NULL REFERENCES achievements(key),
+      trade_id        INTEGER REFERENCES trades(id) ON DELETE SET NULL,
+      unlocked_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      UNIQUE(user_id, achievement_key)
+    );
 
-// Migration: add session_type column if it doesn't exist yet (existing DBs)
-try {
-  db.exec(`ALTER TABLE trades ADD COLUMN session_type TEXT NOT NULL DEFAULT 'live'`);
-} catch (_) { /* already exists */ }
+    CREATE TABLE IF NOT EXISTS xp_log (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    TEXT    NOT NULL DEFAULT 'local',
+      trade_id   INTEGER REFERENCES trades(id) ON DELETE SET NULL,
+      source     TEXT    NOT NULL,
+      amount     INTEGER NOT NULL,
+      created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+  `);
 
-// Migrate legacy "X Backtest" asset names to session_type = 'backtest'
-db.exec(`
-  UPDATE trades
-  SET session_type = 'backtest', asset = REPLACE(asset, ' Backtest', '')
-  WHERE asset LIKE '% Backtest'
-`);
+  // Migrations for existing DBs (idempotent)
+  try { db.exec(`ALTER TABLE trades ADD COLUMN session_type TEXT NOT NULL DEFAULT 'live'`); } catch (_) {}
+  try { db.exec(`ALTER TABLE trades ADD COLUMN series_id INTEGER REFERENCES series(id) ON DELETE SET NULL`); } catch (_) {}
+
+  // Migrate legacy "X Backtest" asset names
+  db.exec(`
+    UPDATE trades
+    SET session_type = 'backtest', asset = REPLACE(asset, ' Backtest', '')
+    WHERE asset LIKE '% Backtest'
+  `);
+}
+
+function reinitDb() {
+  _db = new Database(DB_PATH);
+  initPragmas();
+  runSchema();
+}
+
+initPragmas();
+runSchema();
 
 // Seed achievement definitions (idempotent)
 const seedAchievement = db.prepare(`

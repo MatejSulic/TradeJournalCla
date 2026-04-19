@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, createTrade, updateTrade } from '../api';
+import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, createTrade, updateTrade, getSeries } from '../api';
 import XPToast from '../components/XPToast';
 
 const ASSETS = ['NQ', 'MNQ', 'ES', 'MES'];
 
 const EMPTY = {
-  asset: '', session_type: 'live', direction: 'long', pnl: '',
+  asset: '', session_type: 'live', series_id: '', direction: 'long', pnl: '',
   risk_reward: '', risk_amount: '', entry_time: '',
   why_entered: '', psychology: '', improvements: '', risk_management: '',
 };
@@ -26,22 +26,26 @@ export default function TradeForm() {
   const [ltfFiles, setLtfFiles] = useState([]);
   const [htfFiles, setHtfFiles] = useState([]);
   const [dailyBiasFiles, setDailyBiasFiles] = useState([]);
+  const [seriesList, setSeriesList] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
   const [pendingNav, setPendingNav] = useState(null);
 
+  const formRef = useRef();
   const ltfRef = useRef();
   const htfRef = useRef();
   const dailyBiasRef = useRef();
 
   useEffect(() => {
     getEntryModels().then(setModels);
+    getSeries().then(setSeriesList);
     if (isEdit) {
       getTrade(id).then(t => {
         setFields({
           asset: t.asset ?? '',
           session_type: t.session_type ?? 'live',
+          series_id: t.series_id ?? '',
           direction: t.direction ?? 'long',
           pnl: t.pnl ?? '',
           risk_reward: t.risk_reward ?? '',
@@ -125,21 +129,29 @@ export default function TradeForm() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
-      <div className="flex items-center gap-3 mb-7">
-        <Link
-          to={isEdit ? `/trades/${id}` : '/trades'}
-          className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </Link>
-        <span className="text-surface-border">·</span>
-        <h1 className="text-2xl font-semibold text-white">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
+      <div className="flex items-center justify-between mb-7">
+        <div className="flex items-center gap-3">
+          <Link
+            to={isEdit ? `/trades/${id}` : '/trades'}
+            className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </Link>
+          <span className="text-surface-border">·</span>
+          <h1 className="text-2xl font-semibold text-white">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
+        </div>
+        <div className="flex gap-2">
+          <Link to={isEdit ? `/trades/${id}` : '/trades'} className="btn-ghost">Cancel</Link>
+          <button type="button" disabled={saving} className="btn-primary" onClick={() => formRef.current?.requestSubmit()}>
+            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Trade'}
+          </button>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
         {/* Core fields */}
         <div className="card space-y-4">
           <div className="flex items-center justify-between">
@@ -202,6 +214,12 @@ export default function TradeForm() {
                 <option value="low">Low</option>
                 <option value="perfect">Perfect</option>
                 <option value="high">High</option>
+              </select>
+            </Field>
+            <Field label="Series">
+              <select className="input" value={fields.series_id} onChange={e => set('series_id', e.target.value)}>
+                <option value="">— None —</option>
+                {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </Field>
           </div>
@@ -321,14 +339,7 @@ export default function TradeForm() {
           <UploadZone label="HTF Screenshots" files={htfFiles} inputRef={htfRef} onChange={setHtfFiles} />
         </div>
 
-        {error && <p className="text-loss text-sm">{error}</p>}
-
-        <div className="flex gap-3 justify-end pb-4">
-          <Link to={isEdit ? `/trades/${id}` : '/trades'} className="btn-ghost">Cancel</Link>
-          <button type="submit" disabled={saving} className="btn-primary">
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Trade'}
-          </button>
-        </div>
+        {error && <p className="text-loss text-sm pb-4">{error}</p>}
       </form>
 
       {toast && pendingNav && (

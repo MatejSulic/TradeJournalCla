@@ -59,6 +59,12 @@ export async function restoreBackup(file) {
 // Gamification
 export const getProfile = () => req('/gamification/profile');
 
+// Series
+export const getSeries    = ()         => req('/series');
+export const createSeries = (data)     => req('/series', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+export const updateSeries = (id, data) => req(`/series/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+export const deleteSeries = (id)       => req(`/series/${id}`, { method: 'DELETE' });
+
 // Entry models
 export const getEntryModels = () => req('/entry-models');
 export const createEntryModel = (name) =>
