@@ -86,18 +86,30 @@ export default function TradeDetail() {
       </div>
 
       {/* Key metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Metric label="R:R" value={trade.risk_reward != null ? `${trade.risk_reward.toFixed(2)}R` : '—'} />
-        <Metric label="Risk Amount" value={trade.risk_amount != null ? `$${trade.risk_amount.toFixed(2)}` : '—'} />
-        <div className="card">
-          <p className="text-[11px] font-semibold text-slate-600 mb-2 uppercase tracking-widest">Risk Mgmt</p>
-          {trade.risk_management ? (
-            <span className={`text-xs font-semibold capitalize px-2.5 py-1 rounded-lg ${RM_STYLE[trade.risk_management] ?? ''}`}>
-              {trade.risk_management}
-            </span>
-          ) : <p className="text-lg font-semibold text-white">—</p>}
+      <div className="grid sm:grid-cols-3 gap-3">
+        <div className="card flex items-start gap-6">
+          <div>
+            <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">R:R</p>
+            <p className="text-xl font-semibold text-white tabular-nums">
+              {trade.risk_reward != null ? `${trade.risk_reward.toFixed(2)}R` : '—'}
+            </p>
+          </div>
+          {trade.risk_amount != null && (
+            <div>
+              <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Risk $</p>
+              <p className="text-xl font-semibold text-white tabular-nums">${trade.risk_amount.toFixed(2)}</p>
+            </div>
+          )}
+          {trade.risk_management && (
+            <div>
+              <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Risk Mgmt</p>
+              <span className={`text-xs font-semibold capitalize px-2.5 py-1 rounded-lg ${RM_STYLE[trade.risk_management] ?? ''}`}>
+                {trade.risk_management}
+              </span>
+            </div>
+          )}
         </div>
-        <div className="card">
+        <div className="card sm:col-span-2">
           <p className="text-[11px] font-semibold text-slate-600 mb-2 uppercase tracking-widest">Entry Models</p>
           {trade.entry_models?.length ? (
             <div className="flex flex-wrap gap-1">
