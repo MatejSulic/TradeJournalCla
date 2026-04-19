@@ -8,6 +8,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { getTrades, getEntryModels, getSeries } from '../api';
 import StatCard from '../components/StatCard';
+import DatePicker from '../components/DatePicker';
 
 const COLOR_MAIN = '#c6f135';
 const COLOR_NEG  = '#7c3aed';
@@ -153,9 +154,9 @@ export default function Dashboard() {
             <option value="breakeven">Breakeven</option>
           </select>
           <div className="flex items-center gap-2">
-            <input type="date" className="input w-38" value={filters.from} onChange={e => set('from', e.target.value)} />
+            <DatePicker className="w-40" value={filters.from} onChange={v => set('from', v)} placeholder="From" />
             <span className="text-slate-600 text-sm">–</span>
-            <input type="date" className="input w-38" value={filters.to} onChange={e => set('to', e.target.value)} />
+            <DatePicker className="w-40" value={filters.to} onChange={v => set('to', v)} placeholder="To" />
           </div>
         </div>
         {models.length > 0 && (

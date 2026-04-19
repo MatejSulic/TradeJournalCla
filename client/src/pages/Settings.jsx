@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getEntryModels, createEntryModel, deleteEntryModel } from '../api';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Settings() {
   const [models, setModels] = useState([]);
@@ -23,8 +24,11 @@ export default function Settings() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Remove this setup? Trades using it will keep a reference.')) return;
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const doDelete = async () => {
+    const id = confirmDelete;
+    setConfirmDelete(null);
     await deleteEntryModel(id);
     load();
   };
@@ -61,7 +65,7 @@ export default function Settings() {
               <li key={m.id} className="flex items-center justify-between bg-surface-raised px-4 py-2.5 rounded-lg">
                 <span className="text-sm text-slate-200">{m.name}</span>
                 <button
-                  onClick={() => handleDelete(m.id)}
+                  onClick={() => setConfirmDelete(m.id)}
                   className="text-xs text-slate-500 hover:text-loss transition-colors"
                 >
                   Remove
@@ -71,6 +75,14 @@ export default function Settings() {
           </ul>
         )}
       </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message="Remove this setup? Trades using it will keep a reference."
+          confirmLabel="Remove"
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }

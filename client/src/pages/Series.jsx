@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSeries, createSeries, updateSeries, deleteSeries } from '../api';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const EMPTY_FORM = { name: '', description: '' };
 
 export default function SeriesPage() {
   const [series, setSeries] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
@@ -58,8 +60,9 @@ export default function SeriesPage() {
     }
   }
 
-  async function handleDelete(s) {
-    if (!confirm(`Delete series "${s.name}"? Trades won't be deleted, just unlinked.`)) return;
+  async function doDelete() {
+    const s = confirmDelete;
+    setConfirmDelete(null);
     await deleteSeries(s.id);
     setSeries(prev => prev.filter(x => x.id !== s.id));
   }
@@ -157,7 +160,7 @@ export default function SeriesPage() {
                 Edit
               </button>
               <button
-                onClick={() => handleDelete(s)}
+                onClick={() => setConfirmDelete(s)}
                 className="btn-ghost text-xs py-1.5 px-3 text-loss hover:bg-loss/10"
               >
                 Delete
@@ -166,6 +169,14 @@ export default function SeriesPage() {
           </div>
         ))}
       </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`Delete series "${confirmDelete.name}"? Trades won't be deleted, just unlinked.`}
+          confirmLabel="Delete"
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   );
 }

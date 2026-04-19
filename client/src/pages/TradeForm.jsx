@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, createTrade, updateTrade, getSeries } from '../api';
 import XPToast from '../components/XPToast';
+import ConfirmDialog from '../components/ConfirmDialog';
+import DatePicker from '../components/DatePicker';
 
 const ASSETS = ['NQ', 'MNQ', 'ES', 'MES'];
 
@@ -27,6 +29,7 @@ export default function TradeForm() {
   const [htfFiles, setHtfFiles] = useState([]);
   const [dailyBiasFiles, setDailyBiasFiles] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
+  const [confirmRemoveModel, setConfirmRemoveModel] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
@@ -84,8 +87,11 @@ export default function TradeForm() {
     }
   };
 
-  const handleRemoveModel = async (modelId) => {
-    if (!confirm('Remove this setup?')) return;
+  const handleRemoveModel = (modelId) => setConfirmRemoveModel(modelId);
+
+  const doRemoveModel = async () => {
+    const modelId = confirmRemoveModel;
+    setConfirmRemoveModel(null);
     await deleteEntryModel(modelId);
     setModels(ms => ms.filter(m => m.id !== modelId));
     setSelectedModelIds(ids => ids.filter(x => x !== modelId));
@@ -99,6 +105,7 @@ export default function TradeForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!fields.entry_time) { setError('Entry time is required'); return; }
     setSaving(true);
     setError('');
     try {
@@ -189,8 +196,7 @@ export default function TradeForm() {
               </select>
             </Field>
             <Field label="Entry Time *">
-              <input type="datetime-local" className="input" value={fields.entry_time}
-                onChange={e => set('entry_time', e.target.value)} required />
+              <DatePicker withTime value={fields.entry_time} onChange={v => set('entry_time', v)} placeholder="Select date & time" />
             </Field>
             <Field label="Result *">
               <select className="input" value={fields.pnl} onChange={e => set('pnl', e.target.value)} required>
@@ -344,6 +350,14 @@ export default function TradeForm() {
 
       {toast && pendingNav && (
         <XPToast data={toast} onDismiss={() => navigate(pendingNav)} />
+      )}
+      {confirmRemoveModel && (
+        <ConfirmDialog
+          message="Remove this setup? It will be deleted for all trades."
+          confirmLabel="Remove"
+          onConfirm={doRemoveModel}
+          onCancel={() => setConfirmRemoveModel(null)}
+        />
       )}
     </div>
   );

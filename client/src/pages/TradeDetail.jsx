@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { getTrade, deleteTrade } from '../api';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const PNL_STYLE = {
   win:       'bg-profit/10 text-profit border border-profit/20',
@@ -21,14 +22,15 @@ export default function TradeDetail() {
   const [trade, setTrade] = useState(null);
   const [lightbox, setLightbox] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     getTrade(id).then(setTrade);
   }, [id]);
 
   const handleDelete = async () => {
-    if (!confirm('Delete this trade? This cannot be undone.')) return;
     setDeleting(true);
+    setConfirmDelete(false);
     await deleteTrade(id);
     navigate('/trades');
   };
@@ -77,7 +79,7 @@ export default function TradeDetail() {
         </div>
         <div className="flex items-center gap-2">
           <Link to={`/trades/${id}/edit`} className="btn-ghost text-sm">Edit</Link>
-          <button onClick={handleDelete} disabled={deleting} className="btn-danger text-sm">
+          <button onClick={() => setConfirmDelete(true)} disabled={deleting} className="btn-danger text-sm">
             Delete
           </button>
         </div>
@@ -139,6 +141,14 @@ export default function TradeDetail() {
             onClick={e => e.stopPropagation()}
           />
         </div>
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          message="Delete this trade permanently? This cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   );

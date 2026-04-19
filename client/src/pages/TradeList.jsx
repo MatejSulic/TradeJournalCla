@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { getTrades, getEntryModels, getSeries, downloadBackup, restoreBackup } from '../api';
+import DatePicker from '../components/DatePicker';
 
 const PNL_STYLE = {
   win:       'bg-profit/10 text-profit border border-profit/20',
@@ -193,9 +194,9 @@ export default function TradeList() {
             {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
           <div className="flex items-center gap-2">
-            <input type="date" className="input w-38" value={filters.from} onChange={e => set('from', e.target.value)} />
+            <DatePicker className="w-40" value={filters.from} onChange={v => set('from', v)} placeholder="From" />
             <span className="text-slate-600 text-sm">–</span>
-            <input type="date" className="input w-38" value={filters.to} onChange={e => set('to', e.target.value)} />
+            <DatePicker className="w-40" value={filters.to} onChange={v => set('to', v)} placeholder="To" />
           </div>
         </div>
       </div>
