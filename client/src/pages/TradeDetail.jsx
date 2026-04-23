@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { getTrade, deleteTrade } from '../api';
@@ -21,7 +21,22 @@ export default function TradeDetail() {
   const navigate = useNavigate();
   const [trade, setTrade] = useState(null);
   const [lightbox, setLightbox] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panStart = useRef(null);
+  const lightboxRef = useRef(null);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    const el = lightboxRef.current;
+    if (!el) return;
+    const handler = e => {
+      e.preventDefault();
+      setZoom(z => Math.min(6, Math.max(1, z - e.deltaY * 0.001)));
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, [lightbox]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -140,16 +155,64 @@ export default function TradeDetail() {
       {/* Lightbox */}
       {lightbox && (
         <div
-          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
-          onClick={() => setLightbox(null)}
+          ref={lightboxRef}
+          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center"
+          style={{ cursor: zoom > 1 ? 'grab' : 'zoom-in' }}
+          onMouseDown={e => {
+            if (zoom <= 1) return;
+            panStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+            e.currentTarget.style.cursor = 'grabbing';
+          }}
+          onMouseMove={e => {
+            if (!panStart.current) return;
+            setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
+          }}
+          onMouseUp={e => {
+            panStart.current = null;
+            e.currentTarget.style.cursor = zoom > 1 ? 'grab' : 'zoom-in';
+          }}
+          onMouseLeave={() => { panStart.current = null; }}
+          onDoubleClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+          onClick={e => {
+            if (e.target === e.currentTarget) { setLightbox(null); setZoom(1); setPan({ x: 0, y: 0 }); }
+          }}
         >
-          <button className="absolute top-5 right-5 w-9 h-9 rounded-xl bg-surface-raised border border-surface-border text-slate-400 hover:text-white flex items-center justify-center transition-colors text-lg">
+          {/* Close */}
+          <button
+            className="absolute top-5 right-5 w-9 h-9 rounded-xl bg-surface-raised border border-surface-border text-slate-400 hover:text-white flex items-center justify-center transition-colors text-lg z-10"
+            onClick={() => { setLightbox(null); setZoom(1); setPan({ x: 0, y: 0 }); }}
+          >
             ✕
           </button>
+
+          {/* Zoom controls */}
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-surface-raised border border-surface-border rounded-xl px-3 py-1.5 z-10">
+            <button
+              className="w-7 h-7 rounded-lg text-slate-400 hover:text-white transition-colors text-xl leading-none"
+              onClick={e => { e.stopPropagation(); setZoom(z => Math.max(1, z - 0.5)); if (zoom - 0.5 <= 1) setPan({ x: 0, y: 0 }); }}
+            >−</button>
+            <span className="text-xs text-slate-400 w-10 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+            <button
+              className="w-7 h-7 rounded-lg text-slate-400 hover:text-white transition-colors text-xl leading-none"
+              onClick={e => { e.stopPropagation(); setZoom(z => Math.min(6, z + 0.5)); }}
+            >+</button>
+            <div className="w-px h-4 bg-surface-border mx-1" />
+            <button
+              className="text-xs text-slate-400 hover:text-white transition-colors px-1"
+              onClick={e => { e.stopPropagation(); setZoom(1); setPan({ x: 0, y: 0 }); }}
+            >Reset</button>
+          </div>
+
           <img
             src={lightbox}
             alt="screenshot"
-            className="max-w-full max-h-full rounded-xl object-contain"
+            className="max-w-full max-h-full object-contain select-none"
+            style={{
+              transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+              transition: panStart.current ? 'none' : 'transform 0.1s ease',
+              borderRadius: '0.75rem',
+            }}
+            draggable={false}
             onClick={e => e.stopPropagation()}
           />
         </div>
