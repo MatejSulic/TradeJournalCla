@@ -65,7 +65,7 @@ router.get('/', (req, res) => {
   if (from)         { sql += ' AND t.entry_time >= ?';    params.push(from); }
   if (to)           { sql += ' AND t.entry_time <= ?';    params.push(to); }
 
-  sql += ' ORDER BY t.entry_time DESC';
+  sql += ' ORDER BY t.created_at DESC';
 
   const trades = db.prepare(sql).all(...params).map(hydrateTrade);
   res.json(trades);

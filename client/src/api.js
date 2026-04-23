@@ -75,3 +75,9 @@ export const createEntryModel = (name) =>
   });
 export const deleteEntryModel = (id) =>
   req(`/entry-models/${id}`, { method: 'DELETE' });
+export const reorderEntryModels = (items) =>
+  req('/entry-models/reorder', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(items),
+  });

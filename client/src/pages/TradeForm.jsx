@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, createTrade, updateTrade, getSeries } from '../api';
+import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, reorderEntryModels, createTrade, updateTrade, getSeries } from '../api';
 import XPToast from '../components/XPToast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DatePicker from '../components/DatePicker';
@@ -30,6 +30,8 @@ export default function TradeForm() {
   const [dailyBiasFiles, setDailyBiasFiles] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
   const [confirmRemoveModel, setConfirmRemoveModel] = useState(null);
+  const [dragId, setDragId] = useState(null);
+  const [dropIndex, setDropIndex] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
@@ -88,6 +90,34 @@ export default function TradeForm() {
   };
 
   const handleRemoveModel = (modelId) => setConfirmRemoveModel(modelId);
+
+  const handleDragStart = (e, id) => {
+    setDragId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDropIndex(e.clientX > rect.left + rect.width / 2 ? index + 1 : index);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (dragId == null || dropIndex == null) return;
+    const from = models.findIndex(m => m.id === dragId);
+    if (from === -1) return;
+    const next = [...models];
+    const [item] = next.splice(from, 1);
+    next.splice(dropIndex > from ? dropIndex - 1 : dropIndex, 0, item);
+    setModels(next);
+    setDragId(null);
+    setDropIndex(null);
+    reorderEntryModels(next.map((m, i) => ({ id: m.id, sort_order: i })));
+  };
+
+  const handleDragEnd = () => { setDragId(null); setDropIndex(null); };
 
   const doRemoveModel = async () => {
     const modelId = confirmRemoveModel;
@@ -235,33 +265,54 @@ export default function TradeForm() {
         <div className="card space-y-3">
           <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Setup / Entry Models</h2>
           {models.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {models.map(m => {
+            <div
+              className="flex flex-wrap gap-2 items-center"
+              onDrop={handleDrop}
+              onDragOver={e => e.preventDefault()}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndex(null); }}
+            >
+              {models.map((m, index) => {
                 const active = selectedModelIds.includes(m.id);
+                const isDragging = m.id === dragId;
                 return (
-                  <div key={m.id} className="relative group">
-                    <button
-                      type="button"
-                      onClick={() => toggleModel(m.id)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 ${
-                        active
-                          ? 'bg-accent text-black border-accent'
-                          : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
-                      }`}
+                  <>
+                    {dropIndex === index && dragId && (
+                      <div key={`drop-${index}`} className="w-0.5 h-7 bg-accent rounded-full self-center" />
+                    )}
+                    <div
+                      key={m.id}
+                      draggable
+                      onDragStart={e => handleDragStart(e, m.id)}
+                      onDragOver={e => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
+                      className={`relative group cursor-grab active:cursor-grabbing transition-opacity duration-100 ${isDragging ? 'opacity-30' : ''}`}
                     >
-                      {m.name}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveModel(m.id)}
-                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-surface-raised text-slate-500 hover:bg-loss hover:text-white text-[10px] items-center justify-center hidden group-hover:flex"
-                      title="Delete setup"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleModel(m.id)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 ${
+                          active
+                            ? 'bg-accent text-black border-accent'
+                            : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
+                        }`}
+                      >
+                        {m.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveModel(m.id)}
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-surface-raised text-slate-500 hover:bg-loss hover:text-white text-[10px] items-center justify-center hidden group-hover:flex"
+                        title="Delete setup"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </>
                 );
               })}
+              {dropIndex === models.length && dragId && (
+                <div className="w-0.5 h-7 bg-accent rounded-full self-center" />
+              )}
             </div>
           )}
           {/* Inline add */}

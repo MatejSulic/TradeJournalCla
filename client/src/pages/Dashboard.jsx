@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import { getTrades, getEntryModels, getSeries } from '../api';
+import { getTrades, getEntryModels, getSeries, reorderEntryModels } from '../api';
 import StatCard from '../components/StatCard';
 import DatePicker from '../components/DatePicker';
 
@@ -23,6 +23,8 @@ export default function Dashboard() {
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
+  const [dragId, setDragId] = useState(null);
+  const [dropIndex, setDropIndex] = useState(null);
   const [filters, setFilters] = useState({ asset: '', session_type: '', series_id: '', direction: '', pnl: '', entry_model_id: [], from: '', to: '' });
 
   const load = useCallback(() => {
@@ -33,6 +35,27 @@ export default function Dashboard() {
   useEffect(() => { load(); }, [load]);
 
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
+
+  const handleDragStart = (e, id) => { setDragId(id); e.dataTransfer.effectAllowed = 'move'; };
+  const handleDragOver  = (e, index) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDropIndex(e.clientX > rect.left + rect.width / 2 ? index + 1 : index);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    if (dragId == null || dropIndex == null) return;
+    const from = models.findIndex(m => m.id === dragId);
+    if (from === -1) return;
+    const next = [...models];
+    const [item] = next.splice(from, 1);
+    next.splice(dropIndex > from ? dropIndex - 1 : dropIndex, 0, item);
+    setModels(next);
+    setDragId(null);
+    setDropIndex(null);
+    reorderEntryModels(next.map((m, i) => ({ id: m.id, sort_order: i })));
+  };
+  const handleDragEnd = () => { setDragId(null); setDropIndex(null); };
 
   const toggleModelFilter = (id) => {
     setFilters(f => ({
@@ -53,11 +76,11 @@ export default function Dashboard() {
 
   let score = 0;
   const equityData = [...trades]
-    .sort((a, b) => a.entry_time.localeCompare(b.entry_time))
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map(t => {
       if (t.pnl === 'win')  score += 1;
       if (t.pnl === 'loss') score -= 1;
-      return { date: t.entry_time, score };
+      return { date: t.created_at, score };
     });
 
   const pieData = [
@@ -160,25 +183,44 @@ export default function Dashboard() {
           </div>
         </div>
         {models.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-surface-border">
+          <div
+            className="flex flex-wrap gap-1.5 items-center pt-2 border-t border-surface-border"
+            onDrop={handleDrop}
+            onDragOver={e => e.preventDefault()}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndex(null); }}
+          >
             <span className="text-[11px] text-slate-600 self-center mr-1 uppercase tracking-wide">Setups:</span>
-            {models.map(m => {
+            {models.map((m, index) => {
               const active = filters.entry_model_id.includes(m.id);
               return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => toggleModelFilter(m.id)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all duration-150 ${
-                    active
-                      ? 'bg-accent text-black border-accent'
-                      : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
-                  }`}
-                >
-                  {m.name}
-                </button>
+                <>
+                  {dropIndex === index && dragId && (
+                    <div key={`drop-${index}`} className="w-0.5 h-6 bg-accent rounded-full self-center" />
+                  )}
+                  <button
+                    key={m.id}
+                    type="button"
+                    draggable
+                    onDragStart={e => handleDragStart(e, m.id)}
+                    onDragOver={e => handleDragOver(e, index)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => toggleModelFilter(m.id)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all duration-150 cursor-grab active:cursor-grabbing ${
+                      m.id === dragId ? 'opacity-30' : ''
+                    } ${
+                      active
+                        ? 'bg-accent text-black border-accent'
+                        : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
+                    }`}
+                  >
+                    {m.name}
+                  </button>
+                </>
               );
             })}
+            {dropIndex === models.length && dragId && (
+              <div className="w-0.5 h-6 bg-accent rounded-full self-center" />
+            )}
           </div>
         )}
       </div>
