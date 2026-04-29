@@ -199,7 +199,11 @@ export default function Dashboard() {
         </button>
 
         {/* Rozbalitelný obsah */}
-        {filtersOpen && (
+        <div
+          className="grid transition-all duration-300 ease-in-out"
+          style={{ gridTemplateRows: filtersOpen ? '1fr' : '0fr' }}
+        >
+          <div className="overflow-hidden">
           <div className="px-5 pb-5 pt-3 border-t border-surface-border space-y-3">
             <div className="flex flex-wrap gap-2">
               <div className="flex rounded-lg border border-surface-border overflow-hidden">
@@ -307,7 +311,8 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        )}
+          </div>
+        </div>
       </div>
 
       {/* Stat cards */}
