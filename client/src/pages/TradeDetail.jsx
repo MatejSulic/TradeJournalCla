@@ -62,15 +62,15 @@ export default function TradeDetail() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <Link
-            to="/trades"
+          <button
+            onClick={() => navigate(-1)}
             className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm transition-colors w-fit"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Trades
-          </Link>
+            Back
+          </button>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold text-white">{trade.asset}</h1>
             {trade.session_type === 'backtest' && (
