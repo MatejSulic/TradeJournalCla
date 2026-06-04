@@ -85,7 +85,11 @@ export default function TradeCalendar({ trades }) {
     const decided   = wins + losses;
     const winRate   = decided ? Math.round((wins / decided) * 100) : null;
     const days      = week.filter(d => (byDate[format(d, 'yyyy-MM-dd')] || []).length > 0).length;
-    return { count: ts.length, wins, losses, breakevens, winRate, days };
+    const winRR  = ts.filter(t => t.pnl === 'win'  && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
+    const lossRR = ts.filter(t => t.pnl === 'loss' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
+    const hasRR  = ts.some(t => t.risk_reward != null);
+    const netRR  = hasRR ? winRR - lossRR : null;
+    return { count: ts.length, wins, losses, breakevens, winRate, days, netRR };
   };
 
   const pnlColor = (result) =>
@@ -160,7 +164,6 @@ export default function TradeCalendar({ trades }) {
           <div className="flex flex-col flex-1">
           {weeks.map((week, wi) => {
             const wi_info = weekInfo(week);
-            const wDecided = wi_info.wins + wi_info.losses;
 
             return (
               <div
@@ -254,12 +257,12 @@ export default function TradeCalendar({ trades }) {
                       >
                         {wi_info.wins}W / {wi_info.losses}L
                       </span>
-                      {wDecided > 0 && (
+                      {wi_info.netRR !== null && (
                         <span
-                          className="text-[11px] font-medium"
-                          style={{ color: wi_info.winRate >= 50 ? `${COLOR_MAIN}99` : '#fb923c99' }}
+                          className="text-[11px] font-semibold"
+                          style={{ color: wi_info.netRR >= 0 ? COLOR_MAIN : '#fb923c' }}
                         >
-                          {wi_info.winRate}%
+                          {wi_info.netRR >= 0 ? '+' : ''}{wi_info.netRR.toFixed(2)}R
                         </span>
                       )}
                       <span className="text-[10px] text-slate-600">

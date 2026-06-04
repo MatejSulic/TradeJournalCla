@@ -46,7 +46,10 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { getEntryModels().then(setModels); getSeries().then(setSeriesList); }, []);
-  useEffect(() => { getTrades(filters).then(setTrades); }, [searchParams]);
+  useEffect(() => {
+    const apiFilters = { ...filters, session_type: filters.session_type === 'all' ? '' : filters.session_type };
+    getTrades(apiFilters).then(setTrades);
+  }, [searchParams]);
 
   const set = (k, v) => setSearchParams(prev => {
     const next = new URLSearchParams(prev);
@@ -110,6 +113,10 @@ export default function Dashboard() {
   const winRate    = decided ? (wins / decided) * 100 : 0;
   const rrTrades   = displayTrades.filter(t => t.risk_reward != null);
   const avgRR      = rrTrades.length ? rrTrades.reduce((s, t) => s + t.risk_reward, 0) / rrTrades.length : 0;
+  const netRR = rrTrades.length
+    ? displayTrades.filter(t => t.pnl === 'win'  && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0)
+    - displayTrades.filter(t => t.pnl === 'loss' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0)
+    : null;
   const riskTrades = displayTrades.filter(t => t.risk_amount != null);
   const avgDollarRisk = riskTrades.length ? riskTrades.reduce((s, t) => s + t.risk_amount, 0) / riskTrades.length : null;
 
@@ -140,10 +147,10 @@ export default function Dashboard() {
     return { day: label, winRate: dec ? Math.round((w / dec) * 100) : null };
   });
 
-  const hasFilters = [...searchParams.entries()].some(([k, v]) => !(k === 'session_type' && v === 'live'));
+  const hasFilters = [...searchParams.entries()].some(([k, v]) => !(k === 'session_type' && (v === 'live' || v === 'all')));
 
   const filterChips = [
-    filters.session_type && (filters.session_type === 'live' ? 'Live' : 'Backtest'),
+    filters.session_type && filters.session_type !== 'all' && (filters.session_type === 'live' ? 'Live' : 'Backtest'),
     filters.asset,
     filters.series_id && seriesList.find(s => s.id == filters.series_id)?.name,
     filters.direction && (filters.direction === 'long' ? 'Long' : 'Short'),
@@ -214,7 +221,7 @@ export default function Dashboard() {
           <div className="px-5 pb-5 pt-3 border-t border-surface-border space-y-3">
             <div className="flex flex-wrap gap-2">
               <div className="flex rounded-lg border border-surface-border overflow-hidden">
-                {[['', 'All'], ['live', 'Live'], ['backtest', 'Backtest']].map(([val, label]) => (
+                {[['all', 'All'], ['live', 'Live'], ['backtest', 'Backtest']].map(([val, label]) => (
                   <button
                     key={val}
                     type="button"
@@ -332,11 +339,19 @@ export default function Dashboard() {
           <span className="text-xs text-slate-500">{avgTradesPerWeek} / week</span>
         </div>
 
-        <StatCard
-          label="Win Rate"
-          value={decided ? `${winRate.toFixed(1)}%` : '—'}
-          valueClass={decided ? (winRate >= 50 ? 'text-profit' : 'text-loss') : ''}
-        />
+        <div className="card flex flex-col gap-1.5 py-4">
+          <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Win Rate</span>
+          <div className="flex items-baseline gap-2.5">
+            <span className={`text-2xl font-semibold tabular-nums leading-none ${decided ? (winRate >= 50 ? 'text-profit' : 'text-loss') : 'text-white'}`}>
+              {decided ? `${winRate.toFixed(1)}%` : '—'}
+            </span>
+            {netRR !== null && (
+              <span className="text-sm font-semibold tabular-nums leading-none" style={{ color: netRR >= 0 ? '#c6f135' : '#fb923c' }}>
+                {netRR >= 0 ? '+' : ''}{netRR.toFixed(2)}R
+              </span>
+            )}
+          </div>
+        </div>
         <StatCard label="Avg R:R" value={rrTrades.length ? `${avgRR.toFixed(2)}R` : '—'} />
         <StatCard label="Avg $ Risk" value={avgDollarRisk !== null ? `$${avgDollarRisk.toFixed(0)}` : '—'} />
 
