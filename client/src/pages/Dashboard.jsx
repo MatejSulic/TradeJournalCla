@@ -10,6 +10,7 @@ import { format, parseISO, getISOWeek, getISOWeekYear, getDay } from 'date-fns';
 import { getTrades, getEntryModels, getSeries, reorderEntryModels } from '../api';
 import StatCard from '../components/StatCard';
 import DatePicker from '../components/DatePicker';
+import TradeCalendar from '../components/TradeCalendar';
 
 const COLOR_MAIN = '#c6f135';
 const COLOR_NEG  = '#7c3aed';
@@ -31,7 +32,7 @@ export default function Dashboard() {
 
   const filters = {
     asset: searchParams.get('asset') || '',
-    session_type: searchParams.get('session_type') || '',
+    session_type: searchParams.get('session_type') || 'live',
     series_id: searchParams.get('series_id') || '',
     direction: searchParams.get('direction') || '',
     pnl: searchParams.get('pnl') || '',
@@ -39,6 +40,10 @@ export default function Dashboard() {
     from: searchParams.get('from') || '',
     to: searchParams.get('to') || '',
   };
+
+  useEffect(() => {
+    setSearchParams(prev => { const n = new URLSearchParams(prev); if (!n.has('session_type')) n.set('session_type', 'live'); return n; }, { replace: true });
+  }, []);
 
   useEffect(() => { getEntryModels().then(setModels); getSeries().then(setSeriesList); }, []);
   useEffect(() => { getTrades(filters).then(setTrades); }, [searchParams]);
@@ -105,6 +110,8 @@ export default function Dashboard() {
   const winRate    = decided ? (wins / decided) * 100 : 0;
   const rrTrades   = displayTrades.filter(t => t.risk_reward != null);
   const avgRR      = rrTrades.length ? rrTrades.reduce((s, t) => s + t.risk_reward, 0) / rrTrades.length : 0;
+  const riskTrades = displayTrades.filter(t => t.risk_amount != null);
+  const avgDollarRisk = riskTrades.length ? riskTrades.reduce((s, t) => s + t.risk_amount, 0) / riskTrades.length : null;
 
   let score = 0;
   const equityData = [...displayTrades]
@@ -133,7 +140,7 @@ export default function Dashboard() {
     return { day: label, winRate: dec ? Math.round((w / dec) * 100) : null };
   });
 
-  const hasFilters = searchParams.toString().length > 0;
+  const hasFilters = [...searchParams.entries()].some(([k, v]) => !(k === 'session_type' && v === 'live'));
 
   const filterChips = [
     filters.session_type && (filters.session_type === 'live' ? 'Live' : 'Backtest'),
@@ -148,9 +155,9 @@ export default function Dashboard() {
   ].filter(Boolean);
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 flex flex-col gap-4 mx-auto" style={{ maxWidth: '96vw', height: '96vh' }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-0.5">Your trading performance overview</p>
@@ -164,7 +171,7 @@ export default function Dashboard() {
       </div>
 
       {/* Filters */}
-      <div className="card !p-0 overflow-hidden">
+      <div className="card !p-0 overflow-hidden flex-shrink-0">
         {/* Header — vždy viditelný, kliknutím toggleuje panel */}
         <button
           type="button"
@@ -184,7 +191,7 @@ export default function Dashboard() {
               <span
                 role="button"
                 className="text-xs text-accent hover:underline"
-                onClick={e => { e.stopPropagation(); setSearchParams({}, { replace: true }); }}
+                onClick={e => { e.stopPropagation(); setSearchParams({ session_type: 'live' }, { replace: true }); }}
               >
                 Clear all
               </span>
@@ -315,225 +322,153 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-        <StatCard label="Total Trades" value={trades.length} />
-        <StatCard label="Avg Trades/Week" value={avgTradesPerWeek} />
+      {/* ── Stat cards — full width, 5 combined cards ── */}
+      <div className="grid grid-cols-5 gap-3 flex-shrink-0">
+
+        {/* Total Trades + Avg/Week */}
+        <div className="card flex flex-col gap-1.5 py-4">
+          <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Total Trades</span>
+          <span className="text-2xl font-semibold tabular-nums leading-none text-white">{trades.length}</span>
+          <span className="text-xs text-slate-500">{avgTradesPerWeek} / week</span>
+        </div>
+
         <StatCard
           label="Win Rate"
           value={decided ? `${winRate.toFixed(1)}%` : '—'}
           valueClass={decided ? (winRate >= 50 ? 'text-profit' : 'text-loss') : ''}
         />
         <StatCard label="Avg R:R" value={rrTrades.length ? `${avgRR.toFixed(2)}R` : '—'} />
-        <StatCard label="Wins" value={wins} valueClass="text-profit" />
-        <StatCard label="Losses" value={losses} valueClass="text-loss" />
-        <StatCard label="Breakevens" value={breakevens} valueClass="text-slate-400" />
-      </div>
+        <StatCard label="Avg $ Risk" value={avgDollarRisk !== null ? `$${avgDollarRisk.toFixed(0)}` : '—'} />
 
-      {/* Charts row */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        {/* Performance curve */}
-        <div className="card lg:col-span-2">
-          <h2 className="text-sm font-semibold text-white mb-5">Performance Curve</h2>
-          {equityData.length < 2 ? (
-            <div className="flex items-center justify-center" style={{ height: 457 }}>
-              <p className="text-slate-600 text-sm">Not enough trades to display chart.</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={457}>
-              <LineChart data={equityData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tickFormatter={v => { try { return format(parseISO(v), 'MMM d'); } catch { return v; } }}
-                  tick={{ fill: '#4b5563', fontSize: 11 }}
-                  axisLine={{ stroke: '#1f1f1f' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: '#4b5563', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={36}
-                  allowDecimals={false}
-                />
-                <Tooltip
-                  contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12, color: '#fff' }}
-                  labelStyle={{ color: '#6b7280' }}
-                  formatter={v => [v, 'Score']}
-                  labelFormatter={v => { try { return format(parseISO(v), 'MMM d, yyyy HH:mm'); } catch { return v; } }}
-                  cursor={{ stroke: '#2a2a2a' }}
-                />
-                <ReferenceLine y={0} stroke="#2a2a2a" />
-                <Line
-                  type="monotone"
-                  dataKey="score"
-                  stroke={COLOR_MAIN}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, fill: COLOR_MAIN, strokeWidth: 0 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
+        {/* Wins / Losses / Breakevens */}
+        <div className="card flex flex-col gap-1.5 py-4">
+          <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Results</span>
+          <div className="flex items-baseline gap-3">
+            <span className="text-2xl font-semibold tabular-nums leading-none text-profit">{wins}W</span>
+            <span className="text-2xl font-semibold tabular-nums leading-none text-loss">{losses}L</span>
+            <span className="text-2xl font-semibold tabular-nums leading-none text-slate-400">{breakevens}BE</span>
+          </div>
         </div>
 
-        {/* Right column */}
-        <div className="flex flex-col gap-4">
-          {/* Pie chart */}
-          <div className="card">
-            <h2 className="text-sm font-semibold text-white mb-4">Win Rate</h2>
-            {pieData.length === 0 ? (
-              <div className="flex items-center justify-center py-10">
-                <p className="text-slate-600 text-sm">No trades yet.</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={62}
-                    outerRadius={88}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {pieData.map(entry => (
-                      <Cell key={entry.key} fill={PIE_COLORS[entry.key]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12 }}
-                    labelStyle={{ color: '#6b7280' }}
-                    itemStyle={{ color: '#fff' }}
-                    formatter={(v, name) => [v, name]}
-                  />
-                  <text x="50%" y="48%" textAnchor="middle" dominantBaseline="middle" fill={COLOR_MAIN} fontSize={22} fontWeight={700}>
-                    {decided ? `${winRate.toFixed(1)}%` : '—'}
-                  </text>
-                  <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" fill="#4b5563" fontSize={11}>
-                    Win Rate
-                  </text>
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+      </div>
 
-          {/* Win rate by day of week */}
-          <div className="card">
-            <h2 className="text-sm font-semibold text-white mb-4">Win Rate by Day</h2>
-            {dayStats.every(d => d.winRate === null) ? (
-              <div className="flex items-center justify-center py-10">
-                <p className="text-slate-600 text-sm">No trades yet.</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={189}>
-                <BarChart data={dayStats} margin={{ top: 20, right: 8, left: 0, bottom: 4 }} barSize={28}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
-                  <XAxis
-                    dataKey="day"
-                    tick={{ fill: '#4b5563', fontSize: 11 }}
-                    axisLine={{ stroke: '#1f1f1f' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    domain={[0, 100]}
-                    tickFormatter={v => `${v}%`}
-                    tick={{ fill: '#4b5563', fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={38}
-                  />
-                  <Tooltip
-                    contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12 }}
-                    labelStyle={{ color: '#6b7280' }}
-                    itemStyle={{ color: '#fff' }}
-                    formatter={v => v !== null ? [`${v}%`, 'Win Rate'] : ['—', 'Win Rate']}
-                    cursor={{ fill: '#1f1f1f' }}
-                  />
-                  <ReferenceLine y={50} stroke="#2a2a2a" strokeDasharray="4 4" />
-                  <Bar dataKey="winRate" radius={[4, 4, 0, 0]}>
-                    {dayStats.map((entry, index) => (
-                      <Cell
-                        key={index}
-                        fill={entry.winRate === null ? '#2a2a2a' : entry.winRate >= 50 ? COLOR_MAIN : COLOR_NEG}
-                      />
-                    ))}
-                    <LabelList
-                      dataKey="winRate"
-                      position="top"
-                      formatter={v => v !== null ? `${v}%` : ''}
-                      style={{ fill: COLOR_MAIN, fontSize: 11, fontWeight: 600 }}
+      {/* ── Charts | Calendar ── */}
+      <div className="grid gap-6 flex-1 min-h-0" style={{ gridTemplateColumns: '1fr 1fr' }}>
+
+        {/* Left: charts */}
+        <div className="grid grid-cols-3 gap-4 min-h-0">
+
+          {/* Performance curve */}
+          <div className="card col-span-2 flex flex-col min-h-0">
+            <h2 className="text-sm font-semibold text-white mb-4 flex-shrink-0">Performance Curve</h2>
+            <div className="flex-1 min-h-0">
+              {equityData.length < 2 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-slate-600 text-sm">Not enough trades to display chart.</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={equityData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={v => { try { return format(parseISO(v), 'MMM d'); } catch { return v; } }}
+                      tick={{ fill: '#4b5563', fontSize: 11 }}
+                      axisLine={{ stroke: '#1f1f1f' }}
+                      tickLine={false}
                     />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+                    <YAxis tick={{ fill: '#4b5563', fontSize: 11 }} axisLine={false} tickLine={false} width={36} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12, color: '#fff' }}
+                      labelStyle={{ color: '#6b7280' }}
+                      formatter={v => [v, 'Score']}
+                      labelFormatter={v => { try { return format(parseISO(v), 'MMM d, yyyy HH:mm'); } catch { return v; } }}
+                      cursor={{ stroke: '#2a2a2a' }}
+                    />
+                    <ReferenceLine y={0} stroke="#2a2a2a" />
+                    <Line type="monotone" dataKey="score" stroke={COLOR_MAIN} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: COLOR_MAIN, strokeWidth: 0 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Recent trades */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-sm font-semibold text-white">
-            {hasFilters ? 'Filtered Trades' : 'Recent Trades'}
-          </h2>
-          <Link to="/trades" className="text-xs text-slate-500 hover:text-accent transition-colors">
-            View all →
-          </Link>
-        </div>
-        {displayTrades.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2">
-            <p className="text-slate-500 text-sm">No trades found.</p>
-            <Link to="/trades/new" className="text-xs text-accent hover:underline">Add your first trade →</Link>
+          {/* Win Rate + Win Rate by Day stacked */}
+          <div className="flex flex-col gap-4 min-h-0">
+
+            <div className="card flex flex-col flex-1 min-h-0">
+              <h2 className="text-sm font-semibold text-white mb-3 flex-shrink-0">Win Rate</h2>
+              <div className="flex-1 min-h-0">
+                {pieData.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-slate-600 text-sm">No trades yet.</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={72} paddingAngle={3} dataKey="value">
+                        {pieData.map(entry => <Cell key={entry.key} fill={PIE_COLORS[entry.key]} />)}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12 }}
+                        labelStyle={{ color: '#6b7280' }}
+                        itemStyle={{ color: '#fff' }}
+                        formatter={(v, name) => [v, name]}
+                      />
+                      <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" fill={COLOR_MAIN} fontSize={20} fontWeight={700}>
+                        {decided ? `${winRate.toFixed(1)}%` : '—'}
+                      </text>
+                      <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" fill="#4b5563" fontSize={11}>
+                        Win Rate
+                      </text>
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="card flex flex-col flex-1 min-h-0">
+              <h2 className="text-sm font-semibold text-white mb-3 flex-shrink-0">Win Rate by Day</h2>
+              <div className="flex-1 min-h-0">
+                {dayStats.every(d => d.winRate === null) ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-slate-600 text-sm">No trades yet.</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dayStats} margin={{ top: 18, right: 8, left: 0, bottom: 4 }} barSize={22}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
+                      <XAxis dataKey="day" tick={{ fill: '#4b5563', fontSize: 11 }} axisLine={{ stroke: '#1f1f1f' }} tickLine={false} />
+                      <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fill: '#4b5563', fontSize: 11 }} axisLine={false} tickLine={false} width={38} />
+                      <Tooltip
+                        contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12 }}
+                        labelStyle={{ color: '#6b7280' }}
+                        itemStyle={{ color: '#fff' }}
+                        formatter={v => v !== null ? [`${v}%`, 'Win Rate'] : ['—', 'Win Rate']}
+                        cursor={{ fill: '#1f1f1f' }}
+                      />
+                      <ReferenceLine y={50} stroke="#2a2a2a" strokeDasharray="4 4" />
+                      <Bar dataKey="winRate" radius={[4, 4, 0, 0]}>
+                        {dayStats.map((entry, index) => (
+                          <Cell key={index} fill={entry.winRate === null ? '#2a2a2a' : entry.winRate >= 50 ? COLOR_MAIN : COLOR_NEG} />
+                        ))}
+                        <LabelList dataKey="winRate" position="top" formatter={v => v !== null ? `${v}%` : ''} style={{ fill: COLOR_MAIN, fontSize: 11, fontWeight: 600 }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b border-surface-border">
-                <th className="pb-3 text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Date</th>
-                <th className="pb-3 text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Asset</th>
-                <th className="pb-3 text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Type</th>
-                <th className="pb-3 text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Dir</th>
-                <th className="pb-3 text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Setup</th>
-                <th className="pb-3 text-[11px] font-semibold text-slate-600 uppercase tracking-wide text-right">R:R</th>
-                <th className="pb-3 text-[11px] font-semibold text-slate-600 uppercase tracking-wide text-right">Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayTrades.slice(0, 10).map(t => (
-                <tr key={t.id} className="border-b border-surface-border/50 hover:bg-surface-raised/60 transition-colors group">
-                  <td className="py-3 text-slate-500">
-                    <Link to={`/trades/${t.id}`} className="group-hover:text-white transition-colors">
-                      {fmtDate(t.entry_time)}
-                    </Link>
-                  </td>
-                  <td className="py-3 text-white font-medium">{t.asset}</td>
-                  <td className="py-3 text-slate-500">
-                    {t.session_type === 'backtest' ? 'Backtest' : 'Live'}
-                  </td>
-                  <td className={`py-3 capitalize text-xs font-semibold ${t.direction === 'long' ? 'text-profit' : 'text-loss'}`}>
-                    {t.direction}
-                  </td>
-                  <td className="py-3 text-slate-500 max-w-[140px] truncate">
-                    {t.entry_models?.length ? t.entry_models.map(m => m.name).join(', ') : '—'}
-                  </td>
-                  <td className="py-3 text-right text-slate-500">
-                    {t.risk_reward != null ? `${t.risk_reward.toFixed(2)}R` : '—'}
-                  </td>
-                  <td className="py-3 text-right">
-                    <span className={`text-xs font-semibold capitalize px-2.5 py-1 rounded-lg ${PNL_STYLE[t.pnl] ?? ''}`}>
-                      {t.pnl}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+        </div>
+
+        {/* Right: calendar */}
+        <div className="min-h-0">
+          <TradeCalendar trades={displayTrades} />
+        </div>
+
+      </div>{/* end charts+calendar grid */}
     </div>
   );
 }

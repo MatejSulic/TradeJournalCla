@@ -119,16 +119,16 @@ router.get('/:id', (req, res) => {
 
 // Create trade
 router.post('/', uploadFields, (req, res) => {
-  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, entry_time,
+  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, pnl_dollars, entry_time,
           why_entered, psychology, improvements, risk_management, entry_model_ids } = req.body;
 
   if (!asset || !direction || !pnl || !entry_time)
     return res.status(400).json({ error: 'asset, direction, pnl, entry_time required' });
 
   const insert = db.prepare(`
-    INSERT INTO trades (asset, session_type, series_id, direction, pnl, risk_reward, risk_amount,
+    INSERT INTO trades (asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, pnl_dollars,
                         entry_time, why_entered, psychology, improvements, risk_management)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = insert.run(
@@ -137,6 +137,7 @@ router.post('/', uploadFields, (req, res) => {
     direction, pnl,
     risk_reward ? parseFloat(risk_reward) : null,
     risk_amount ? parseFloat(risk_amount) : null,
+    pnl_dollars !== undefined && pnl_dollars !== '' ? parseFloat(pnl_dollars) : null,
     entry_time,
     why_entered || null, psychology || null,
     improvements || null, risk_management || null
@@ -158,14 +159,14 @@ router.put('/:id', uploadFields, (req, res) => {
   const trade = db.prepare('SELECT id FROM trades WHERE id = ?').get(req.params.id);
   if (!trade) return res.status(404).json({ error: 'not found' });
 
-  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, entry_time,
+  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, pnl_dollars, entry_time,
           why_entered, psychology, improvements, risk_management,
           delete_screenshot_ids, entry_model_ids } = req.body;
 
   db.prepare(`
     UPDATE trades SET
       asset = ?, session_type = ?, series_id = ?, direction = ?, pnl = ?, risk_reward = ?,
-      risk_amount = ?, entry_time = ?, why_entered = ?, psychology = ?,
+      risk_amount = ?, pnl_dollars = ?, entry_time = ?, why_entered = ?, psychology = ?,
       improvements = ?, risk_management = ?,
       updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = ?
@@ -175,6 +176,7 @@ router.put('/:id', uploadFields, (req, res) => {
     direction, pnl,
     risk_reward ? parseFloat(risk_reward) : null,
     risk_amount ? parseFloat(risk_amount) : null,
+    pnl_dollars !== undefined && pnl_dollars !== '' ? parseFloat(pnl_dollars) : null,
     entry_time,
     why_entered || null, psychology || null,
     improvements || null, risk_management || null,

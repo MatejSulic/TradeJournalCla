@@ -68,7 +68,7 @@ export default function SeriesPage() {
   }
 
   return (
-    <div className="p-8 space-y-5 max-w-4xl mx-auto">
+    <div className="p-6 space-y-5 mx-auto" style={{ maxWidth: '96vw' }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

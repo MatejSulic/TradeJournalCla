@@ -77,9 +77,9 @@ export default function TradeList() {
   }
 
   return (
-    <div className="p-8 space-y-5 max-w-7xl mx-auto">
+    <div className="p-6 flex flex-col gap-4 mx-auto" style={{ maxWidth: '96vw', height: '96vh' }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-shrink-0">
         <div>
           <h1 className="text-2xl font-semibold text-white">Trades</h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -135,7 +135,7 @@ export default function TradeList() {
       )}
 
       {/* Filters */}
-      <div className="card space-y-2">
+      <div className="card space-y-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-1">
           <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Filters</p>
           {hasFilters && (
@@ -202,9 +202,10 @@ export default function TradeList() {
       </div>
 
       {/* Table */}
-      <div className="card p-0 overflow-hidden">
+      <div className="card p-0 overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="overflow-y-auto flex-1 min-h-0">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 bg-surface-card z-10">
             <tr className="border-b border-surface-border">
               <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Date / Time</th>
               <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Asset</th>
@@ -269,6 +270,7 @@ export default function TradeList() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Pagination */}

@@ -58,7 +58,7 @@ export default function TradeDetail() {
   const entryDay = trade.entry_time ? format(parseISO(trade.entry_time), 'EEEE') : '—';
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-5">
+    <div className="p-6 mx-auto space-y-5" style={{ maxWidth: '96vw' }}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="space-y-2">
@@ -109,6 +109,14 @@ export default function TradeDetail() {
               {trade.risk_reward != null ? `${trade.risk_reward.toFixed(2)}R` : '—'}
             </p>
           </div>
+          {trade.pnl_dollars != null && (
+            <div>
+              <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">PnL $</p>
+              <p className={`text-xl font-semibold tabular-nums ${trade.pnl_dollars >= 0 ? 'text-profit' : 'text-loss'}`}>
+                {trade.pnl_dollars >= 0 ? '+' : ''}${Math.abs(trade.pnl_dollars).toFixed(2)}
+              </p>
+            </div>
+          )}
           {trade.risk_amount != null && (
             <div>
               <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Risk $</p>

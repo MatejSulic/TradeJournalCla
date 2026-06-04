@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getDaysInMonth } from 'date-fns';
 
 const ITEM_H = 46;
@@ -92,7 +93,9 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
   const [month, setMonth] = useState(p.month);
   const [day, setDay]     = useState(p.day);
   const [time, setTime]   = useState(p.time);
+  const [popupStyle, setPopupStyle] = useState({});
   const wrapRef = useRef();
+  const btnRef = useRef();
 
   useEffect(() => {
     const q = parseDate(value);
@@ -102,9 +105,24 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
 
   useEffect(() => {
     if (!open) return;
-    const handler = e => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+    const handler = e => {
+      if (!wrapRef.current?.contains(e.target) && !document.getElementById('dp-portal')?.contains(e.target))
+        setOpen(false);
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const updatePos = () => {
+      const r = btnRef.current.getBoundingClientRect();
+      setPopupStyle({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX });
+    };
+    updatePos();
+    window.addEventListener('scroll', updatePos, true);
+    window.addEventListener('resize', updatePos);
+    return () => { window.removeEventListener('scroll', updatePos, true); window.removeEventListener('resize', updatePos); };
   }, [open]);
 
   const pad = n => String(n).padStart(2, '0');
@@ -128,49 +146,53 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
     ? `${MONTHS[month - 1]} ${pad(day)}, ${year}${withTime && time ? `  ${time}` : ''}`
     : null;
 
+  const popup = open ? createPortal(
+    <div
+      id="dp-portal"
+      className="fixed z-[9999] rounded-xl border border-surface-border shadow-2xl p-3"
+      style={{ background: '#111111', minWidth: 'max-content', top: popupStyle.top, left: popupStyle.left }}
+    >
+      <p className="text-[10px] text-slate-600 uppercase tracking-widest text-center mb-1">
+        {MONTHS[month - 1]} {pad(day)}, {year}
+      </p>
+      <div className="flex">
+        <WheelColumn items={YEARS}  value={year}  onChange={handleYear}  fmt={v => String(v)} width={68} />
+        <WheelColumn items={months} value={month} onChange={handleMonth} fmt={m => MONTHS[m - 1]} width={56} />
+        <WheelColumn items={days}   value={day}   onChange={handleDay}   fmt={d => pad(d)} width={48} />
+      </div>
+      {withTime && (
+        <div className="mt-2 pt-2 border-t border-surface-border">
+          <input
+            type="time"
+            value={time}
+            onChange={e => handleTime(e.target.value)}
+            className="input w-full text-center"
+            style={{ colorScheme: 'dark' }}
+          />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="btn-primary w-full mt-2 justify-center text-xs py-1.5"
+      >
+        Done
+      </button>
+    </div>,
+    document.body
+  ) : null;
+
   return (
     <div ref={wrapRef} className={`relative ${className}`}>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen(o => !o)}
         className="input text-left w-full"
       >
         {label ?? <span className="text-slate-600">{placeholder}</span>}
       </button>
-
-      {open && (
-        <div
-          className="absolute z-50 left-0 mt-1 rounded-xl border border-surface-border shadow-2xl p-3"
-          style={{ background: '#111111', minWidth: 'max-content' }}
-        >
-          <p className="text-[10px] text-slate-600 uppercase tracking-widest text-center mb-1">
-            {MONTHS[month - 1]} {pad(day)}, {year}
-          </p>
-          <div className="flex">
-            <WheelColumn items={YEARS}  value={year}  onChange={handleYear}  fmt={v => String(v)} width={68} />
-            <WheelColumn items={months} value={month} onChange={handleMonth} fmt={m => MONTHS[m - 1]} width={56} />
-            <WheelColumn items={days}   value={day}   onChange={handleDay}   fmt={d => pad(d)} width={48} />
-          </div>
-          {withTime && (
-            <div className="mt-2 pt-2 border-t border-surface-border">
-              <input
-                type="time"
-                value={time}
-                onChange={e => handleTime(e.target.value)}
-                className="input w-full text-center"
-                style={{ colorScheme: 'dark' }}
-              />
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="btn-primary w-full mt-2 justify-center text-xs py-1.5"
-          >
-            Done
-          </button>
-        </div>
-      )}
+      {popup}
     </div>
   );
 }

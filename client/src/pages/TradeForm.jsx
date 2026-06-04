@@ -9,7 +9,7 @@ const ASSETS = ['NQ', 'MNQ', 'ES', 'MES'];
 
 const EMPTY = {
   asset: '', session_type: 'live', series_id: '', direction: 'long', pnl: '',
-  risk_reward: '', risk_amount: '', entry_time: '',
+  risk_reward: '', risk_amount: '', pnl_dollars: '', entry_time: '',
   why_entered: '', psychology: '', improvements: '', risk_management: '',
 };
 
@@ -55,6 +55,7 @@ export default function TradeForm() {
           pnl: t.pnl ?? '',
           risk_reward: t.risk_reward ?? '',
           risk_amount: t.risk_amount ?? '',
+          pnl_dollars: t.pnl_dollars ?? '',
           entry_time: t.entry_time ? t.entry_time.slice(0, 16) : '',
           why_entered: t.why_entered ?? '',
           psychology: t.psychology ?? '',
@@ -68,6 +69,18 @@ export default function TradeForm() {
   }, [id, isEdit]);
 
   const set = (k, v) => setFields(f => ({ ...f, [k]: v }));
+
+  // Auto-calculate risk_amount from pnl_dollars + risk_reward
+  useEffect(() => {
+    const dollars = parseFloat(fields.pnl_dollars);
+    const rr = parseFloat(fields.risk_reward);
+    if (!fields.pnl_dollars || isNaN(dollars)) { setFields(f => ({ ...f, risk_amount: '' })); return; }
+    const absDollars = Math.abs(dollars);
+    let risk = null;
+    if (fields.pnl === 'win' && !isNaN(rr) && rr > 0) risk = absDollars / rr;
+    else if (fields.pnl === 'loss') risk = absDollars;
+    setFields(f => ({ ...f, risk_amount: risk !== null ? risk.toFixed(2) : '' }));
+  }, [fields.pnl_dollars, fields.risk_reward, fields.pnl]);
 
   const toggleModel = (modelId) => {
     setSelectedModelIds(ids =>
@@ -136,6 +149,8 @@ export default function TradeForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!fields.entry_time) { setError('Entry time is required'); return; }
+    if (!fields.pnl) { setError('Result is required'); return; }
+    if (!fields.asset) { setError('Asset is required'); return; }
     setSaving(true);
     setError('');
     try {
@@ -152,11 +167,12 @@ export default function TradeForm() {
       const gam = result.gamification;
       const xpChange = gam?.xpAwarded ?? gam?.xpDelta ?? 0;
       const hasAchievements = (gam?.unlockedAchievements?.length ?? 0) > 0;
+      const afterNav = isEdit ? '/dashboard' : `/trades/${result.id}`;
       if (gam && (xpChange !== 0 || hasAchievements)) {
         setToast(gam);
-        setPendingNav(`/trades/${result.id}`);
+        setPendingNav(afterNav);
       } else {
-        navigate(`/trades/${result.id}`);
+        navigate(afterNav);
       }
     } catch (err) {
       setError(err.message);
@@ -165,8 +181,9 @@ export default function TradeForm() {
   };
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-7">
+    <div className="p-4 h-full flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             to={isEdit ? `/trades/${id}` : '/trades'}
@@ -188,62 +205,111 @@ export default function TradeForm() {
         </div>
       </div>
 
-      <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
-        {/* Core fields */}
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Trade Info</h2>
-            <div className="flex rounded-lg border border-surface-border overflow-hidden">
-              {['live', 'backtest'].map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => set('session_type', t)}
-                  className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                    fields.session_type === t
-                      ? t === 'live'
-                        ? 'bg-profit text-black'
-                        : 'bg-accent text-black'
-                      : 'text-slate-500 hover:text-white'
-                  }`}
-                >
-                  {t === 'live' ? 'Live' : 'Backtest'}
-                </button>
-              ))}
+      {error && <p className="text-loss text-sm">{error}</p>}
+
+      <form ref={formRef} onSubmit={handleSubmit} className="flex-1 min-h-0 grid gap-4 items-stretch" style={{ gridTemplateColumns: '1fr 1.5fr 1fr' }}>
+        {/* COLUMN 1 — Trade Info + Entry Models */}
+        <div className="flex flex-col gap-4">
+
+          {/* Trade Info */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Trade Info</h2>
+              <div className="flex rounded-lg border border-surface-border overflow-hidden">
+                {['live', 'backtest'].map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => set('session_type', t)}
+                    className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                      fields.session_type === t
+                        ? t === 'live' ? 'bg-profit text-black' : 'bg-accent text-black'
+                        : 'text-slate-500 hover:text-white'
+                    }`}
+                  >
+                    {t === 'live' ? 'Live' : 'Backtest'}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4">
+
+            {/* Asset */}
             <Field label="Asset *">
-              <select className="input" value={fields.asset} onChange={e => set('asset', e.target.value)} required>
+              <select className="input" value={fields.asset} onChange={e => set('asset', e.target.value)}>
                 <option value="">— Select —</option>
                 {ASSETS.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </Field>
-            <Field label="Direction *">
-              <select className="input" value={fields.direction} onChange={e => set('direction', e.target.value)}>
-                <option value="long">Long</option>
-                <option value="short">Short</option>
-              </select>
+
+            {/* Direction */}
+            <Field label="Direction">
+              <div className="flex gap-2">
+                {[['long', '↑ Long'], ['short', '↓ Short']].map(([v, l]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => set('direction', v)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all duration-150 ${
+                      fields.direction === v
+                        ? v === 'long'
+                          ? 'bg-profit/15 border-profit text-profit'
+                          : 'bg-loss/15 border-loss text-loss'
+                        : 'border-surface-border text-slate-500 hover:text-white hover:border-slate-500'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
             </Field>
+
+            {/* Result */}
+            <Field label="Result *">
+              <div className="flex gap-1.5">
+                {[['win', 'Win'], ['loss', 'Loss'], ['breakeven', 'BE']].map(([v, l]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => set('pnl', v)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                      fields.pnl === v
+                        ? v === 'win'
+                          ? 'bg-[#c6f135]/15 border-[#c6f135] text-[#c6f135]'
+                          : v === 'loss'
+                            ? 'bg-loss/15 border-loss text-loss'
+                            : 'bg-surface-raised border-slate-500 text-slate-300'
+                        : 'border-surface-border text-slate-500 hover:text-white hover:border-slate-500'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            {/* Entry Time */}
             <Field label="Entry Time *">
               <DatePicker withTime value={fields.entry_time} onChange={v => set('entry_time', v)} placeholder="Select date & time" />
             </Field>
-            <Field label="Result *">
-              <select className="input" value={fields.pnl} onChange={e => set('pnl', e.target.value)} required>
-                <option value="">— Select —</option>
-                <option value="win">Win</option>
-                <option value="loss">Loss</option>
-                <option value="breakeven">Breakeven</option>
-              </select>
-            </Field>
-            <Field label="R:R">
-              <input type="number" step="0.01" min="0" className="input" placeholder="2.50"
-                value={fields.risk_reward} onChange={e => set('risk_reward', e.target.value)} />
-            </Field>
-            <Field label="Risk Amount ($)">
-              <input type="number" step="0.01" min="0" className="input" placeholder="100.00"
-                value={fields.risk_amount} onChange={e => set('risk_amount', e.target.value)} />
-            </Field>
+
+            {/* R:R · PnL $ */}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="R:R">
+                <input type="number" step="0.01" min="0" className="input" placeholder="2.50"
+                  value={fields.risk_reward} onChange={e => set('risk_reward', e.target.value)} />
+              </Field>
+              <Field label="PnL ($)">
+                <input type="number" step="0.01" className="input" placeholder="150"
+                  value={fields.pnl_dollars} onChange={e => set('pnl_dollars', e.target.value)} />
+              </Field>
+            </div>
+            {fields.risk_amount !== '' && (
+              <p className="text-xs text-slate-500 -mt-1">
+                Risk: <span className="text-slate-300 font-medium">${parseFloat(fields.risk_amount).toFixed(2)}</span>
+              </p>
+            )}
+
+            {/* Risk Management */}
             <Field label="Risk Management">
               <select className="input" value={fields.risk_management} onChange={e => set('risk_management', e.target.value)}>
                 <option value="">— Select —</option>
@@ -252,6 +318,8 @@ export default function TradeForm() {
                 <option value="high">High</option>
               </select>
             </Field>
+
+            {/* Series */}
             <Field label="Series">
               <select className="input" value={fields.series_id} onChange={e => set('series_id', e.target.value)}>
                 <option value="">— None —</option>
@@ -259,144 +327,153 @@ export default function TradeForm() {
               </select>
             </Field>
           </div>
-        </div>
 
-        {/* Entry Models */}
-        <div className="card space-y-3">
-          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Setup / Entry Models</h2>
-          {models.length > 0 && (
-            <div
-              className="flex flex-wrap gap-2 items-center"
-              onDrop={handleDrop}
-              onDragOver={e => e.preventDefault()}
-              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndex(null); }}
-            >
-              {models.map((m, index) => {
-                const active = selectedModelIds.includes(m.id);
-                const isDragging = m.id === dragId;
-                return (
-                  <>
-                    {dropIndex === index && dragId && (
-                      <div key={`drop-${index}`} className="w-0.5 h-7 bg-accent rounded-full self-center" />
-                    )}
-                    <div
-                      key={m.id}
-                      draggable
-                      onDragStart={e => handleDragStart(e, m.id)}
-                      onDragOver={e => handleDragOver(e, index)}
-                      onDragEnd={handleDragEnd}
-                      className={`relative group cursor-grab active:cursor-grabbing transition-opacity duration-100 ${isDragging ? 'opacity-30' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleModel(m.id)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 ${
-                          active
-                            ? 'bg-accent text-black border-accent'
-                            : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
-                        }`}
+          {/* Entry Models */}
+          <div className="card space-y-3 flex-1">
+            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Setup / Entry Models</h2>
+            {models.length > 0 && (
+              <div
+                className="flex flex-wrap gap-2 items-center"
+                onDrop={handleDrop}
+                onDragOver={e => e.preventDefault()}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndex(null); }}
+              >
+                {models.map((m, index) => {
+                  const active = selectedModelIds.includes(m.id);
+                  const isDragging = m.id === dragId;
+                  return (
+                    <>
+                      {dropIndex === index && dragId && (
+                        <div key={`drop-${index}`} className="w-0.5 h-7 bg-accent rounded-full self-center" />
+                      )}
+                      <div
+                        key={m.id}
+                        draggable
+                        onDragStart={e => handleDragStart(e, m.id)}
+                        onDragOver={e => handleDragOver(e, index)}
+                        onDragEnd={handleDragEnd}
+                        className={`relative group cursor-grab active:cursor-grabbing transition-opacity duration-100 ${isDragging ? 'opacity-30' : ''}`}
                       >
-                        {m.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveModel(m.id)}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-surface-raised text-slate-500 hover:bg-loss hover:text-white text-[10px] items-center justify-center hidden group-hover:flex"
-                        title="Delete setup"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </>
-                );
-              })}
-              {dropIndex === models.length && dragId && (
-                <div className="w-0.5 h-7 bg-accent rounded-full self-center" />
-              )}
+                        <button
+                          type="button"
+                          onClick={() => toggleModel(m.id)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 ${
+                            active
+                              ? 'bg-accent text-black border-accent'
+                              : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
+                          }`}
+                        >
+                          {m.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveModel(m.id)}
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-surface-raised text-slate-500 hover:bg-loss hover:text-white text-[10px] items-center justify-center hidden group-hover:flex"
+                          title="Delete setup"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </>
+                  );
+                })}
+                {dropIndex === models.length && dragId && (
+                  <div className="w-0.5 h-7 bg-accent rounded-full self-center" />
+                )}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                className="input flex-1 text-sm"
+                placeholder="New setup name (e.g. FVG, OB, BOS)…"
+                value={newModelName}
+                onChange={e => setNewModelName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddModel(); } }}
+                maxLength={80}
+              />
+              <button type="button" onClick={handleAddModel} className="btn-ghost text-sm whitespace-nowrap">+ Add</button>
             </div>
-          )}
-          {/* Inline add */}
-          <div className="flex gap-2">
-            <input
-              className="input flex-1 text-sm"
-              placeholder="New setup name (e.g. FVG, OB, BOS)…"
-              value={newModelName}
-              onChange={e => setNewModelName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddModel(); } }}
-              maxLength={80}
-            />
-            <button type="button" onClick={handleAddModel} className="btn-ghost text-sm whitespace-nowrap">+ Add</button>
+            {modelError && <p className="text-loss text-xs">{modelError}</p>}
           </div>
-          {modelError && <p className="text-loss text-xs">{modelError}</p>}
         </div>
 
-        {/* Notes */}
-        <div className="card space-y-4">
-          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Notes</h2>
-          <Field label="Why I Entered">
-            <textarea className="input resize-none" rows={3} value={fields.why_entered}
-              onChange={e => set('why_entered', e.target.value)} placeholder="Describe your entry reasoning…" />
-          </Field>
-          <Field label="Psychology">
-            <textarea className="input resize-none" rows={3} value={fields.psychology}
-              onChange={e => set('psychology', e.target.value)} placeholder="How did you feel? Were you disciplined?" />
-          </Field>
-          <Field label="Improvements">
-            <textarea className="input resize-none" rows={3} value={fields.improvements}
-              onChange={e => set('improvements', e.target.value)} placeholder="What could you have done better?" />
-          </Field>
+        {/* COLUMN 2 — Notes (wider) */}
+        <div className="flex flex-col min-h-0">
+          <div className="card flex-1 flex flex-col gap-4 min-h-0">
+            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest flex-shrink-0">Notes</h2>
+            <Field label="Why I Entered" className="flex flex-col flex-1 min-h-0">
+              <textarea className="input resize-none flex-1 min-h-0" value={fields.why_entered}
+                onChange={e => set('why_entered', e.target.value)} placeholder="Describe your entry reasoning…" />
+            </Field>
+            <Field label="Psychology" className="flex flex-col flex-1 min-h-0">
+              <textarea className="input resize-none flex-1 min-h-0" value={fields.psychology}
+                onChange={e => set('psychology', e.target.value)} placeholder="How did you feel? Were you disciplined?" />
+            </Field>
+            <Field label="Improvements" className="flex flex-col flex-1 min-h-0">
+              <textarea className="input resize-none flex-1 min-h-0" value={fields.improvements}
+                onChange={e => set('improvements', e.target.value)} placeholder="What could you have done better?" />
+            </Field>
+          </div>
         </div>
 
-        {/* Screenshots */}
-        <div className="card space-y-4">
-          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Screenshots</h2>
+        {/* COLUMN 3 — Screenshots */}
+        <div className="flex flex-col">
+          <div className="card flex-1 flex flex-col gap-4 overflow-y-auto">
+            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest flex-shrink-0">Screenshots</h2>
 
-          {existingScreenshots.length > 0 && (
-            <div className="space-y-3">
-              {['daily_bias', 'ltf', 'htf'].map(type => {
-                const shots = existingScreenshots.filter(s => s.type === type);
-                if (!shots.length) return null;
-                const label = type === 'daily_bias' ? 'Daily Bias' : type.toUpperCase();
-                return (
-                  <div key={type}>
-                    <p className="text-xs text-slate-500 mb-2 uppercase">{label}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {shots.map(s => (
-                        <div key={s.id} className="relative">
-                          <img
-                            src={`/uploads/${s.filename}`}
-                            alt={s.original_name}
-                            className={`h-20 w-auto rounded border object-cover transition ${
-                              deleteIds.includes(s.id) ? 'opacity-30 border-loss' : 'border-surface-border'
-                            }`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => toggleDelete(s.id)}
-                            className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-xs flex items-center justify-center transition ${
-                              deleteIds.includes(s.id)
-                                ? 'bg-loss text-white'
-                                : 'bg-surface-raised text-slate-400 hover:bg-loss hover:text-white'
-                            }`}
-                            title={deleteIds.includes(s.id) ? 'Undo remove' : 'Remove'}
-                          >
-                            ✕
-                          </button>
+            {existingScreenshots.length > 0 && (
+              <div className="space-y-4">
+                {['daily_bias', 'ltf', 'htf'].map(type => {
+                  const shots = existingScreenshots.filter(s => s.type === type);
+                  if (!shots.length) return null;
+                  const label = type === 'daily_bias' ? 'Daily Bias' : type.toUpperCase();
+                  return (
+                    <div key={type}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-slate-500 uppercase tracking-wide">{label}</p>
+                        <span className="text-xs text-slate-600">{shots.length} saved</span>
+                      </div>
+                      <div className="overflow-x-auto snap-x snap-mandatory pb-1" style={{ scrollbarWidth: 'thin' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${shots.length}, 100%)`, gap: '8px' }}>
+                          {shots.map(s => {
+                            const marked = deleteIds.includes(s.id);
+                            return (
+                              <div key={s.id} className="relative group snap-start">
+                                <img
+                                  src={`/uploads/${s.filename}`}
+                                  alt={s.original_name}
+                                  className={`w-full h-auto rounded-lg border object-cover transition duration-150 ${
+                                    marked ? 'opacity-30 border-loss' : 'border-surface-border'
+                                  }`}
+                                />
+                                <div className="absolute inset-0 rounded-lg bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDelete(s.id)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                                      marked ? 'bg-surface-raised text-slate-300' : 'bg-loss text-white'
+                                    }`}
+                                  >
+                                    {marked ? 'Undo' : 'Remove'}
+                                  </button>
+                                  <p className="text-[10px] text-slate-400 truncate max-w-full px-2 text-center">{s.original_name}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
 
-          <UploadZone label="Daily Bias" files={dailyBiasFiles} inputRef={dailyBiasRef} onChange={setDailyBiasFiles} />
-          <UploadZone label="LTF Screenshots" files={ltfFiles} inputRef={ltfRef} onChange={setLtfFiles} />
-          <UploadZone label="HTF Screenshots" files={htfFiles} inputRef={htfRef} onChange={setHtfFiles} />
+            <UploadZone label="Daily Bias" files={dailyBiasFiles} inputRef={dailyBiasRef} onChange={setDailyBiasFiles} />
+            <UploadZone label="LTF" files={ltfFiles} inputRef={ltfRef} onChange={setLtfFiles} />
+            <UploadZone label="HTF" files={htfFiles} inputRef={htfRef} onChange={setHtfFiles} />
+          </div>
         </div>
-
-        {error && <p className="text-loss text-sm pb-4">{error}</p>}
       </form>
 
       {toast && pendingNav && (
@@ -414,9 +491,9 @@ export default function TradeForm() {
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, className = '' }) {
   return (
-    <div>
+    <div className={className}>
       <label className="label">{label}</label>
       {children}
     </div>
@@ -431,42 +508,69 @@ function UploadZone({ label, files, inputRef, onChange }) {
 
   const remove = (idx) => onChange(prev => prev.filter((_, i) => i !== idx));
 
+  const handlePaste = (e) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const images = items
+      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+      .map(item => item.getAsFile())
+      .filter(Boolean);
+    if (images.length > 0) {
+      e.preventDefault();
+      onChange(prev => [...prev, ...images]);
+    }
+  };
+
   return (
     <div>
-      <p className="label">{label}</p>
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="label mb-0">{label}</p>
+        {files.length > 0 && (
+          <span className="text-xs text-slate-500">{files.length} image{files.length > 1 ? 's' : ''}</span>
+        )}
+      </div>
       <div
-        className="border border-dashed border-surface-border rounded-xl p-5 text-center cursor-pointer hover:border-accent/40 hover:bg-surface-raised/30 transition-all duration-150"
+        className="border border-dashed border-surface-border rounded-xl min-h-[110px] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-accent/40 hover:bg-surface-raised/30 focus:outline-none focus:border-accent/60 focus:bg-surface-raised/30 transition-all duration-150"
+        tabIndex={0}
         onClick={() => inputRef.current?.click()}
+        onDragEnter={e => e.preventDefault()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => {
           e.preventDefault();
-          onChange(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+          const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+          if (dropped.length) onChange(prev => [...prev, ...dropped]);
         }}
+        onPaste={handlePaste}
       >
-        <svg className="w-5 h-5 text-slate-600 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <svg className="w-7 h-7 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
         </svg>
-        <p className="text-sm text-slate-500">Click or drag images here</p>
+        <p className="text-sm text-slate-500">Click, drag, or Ctrl+V</p>
         <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
       </div>
+
       {files.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {files.map((f, i) => (
-            <div key={i} className="relative">
-              <img
-                src={URL.createObjectURL(f)}
-                alt={f.name}
-                className="h-20 w-auto rounded border border-surface-border object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-loss text-white rounded-full text-xs flex items-center justify-center"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+        <div className="mt-2 overflow-x-auto snap-x snap-mandatory pb-1" style={{ scrollbarWidth: 'thin' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${files.length}, 100%)`, gap: '8px' }}>
+            {files.map((f, i) => (
+              <div key={i} className="relative group snap-start">
+                <img
+                  src={URL.createObjectURL(f)}
+                  alt={f.name}
+                  className="w-full h-auto rounded-lg border border-surface-border object-cover"
+                />
+                <div className="absolute inset-0 rounded-lg bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => remove(i)}
+                    className="px-3 py-1 rounded-lg bg-loss text-white text-xs font-semibold"
+                  >
+                    Remove
+                  </button>
+                  <p className="text-[10px] text-slate-400 truncate max-w-full px-2 text-center">{f.name}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useGamification, TIER_STYLES } from '../hooks/useGamification';
 import XPBar from './XPBar';
 
@@ -10,16 +10,14 @@ const links = [
   { to: '/profile',   label: 'Profile',   icon: PersonIcon },
 ];
 
-const VIDEO_PLAYBACK_RATE = 0.8; // 1 = normal speed, 0.1 = 10x slower
-
 export default function Layout() {
   const { profile, refetch } = useGamification();
   const location = useLocation();
-  const videoRef = useRef(null);
 
   // Keep sidebar fresh after every navigation (e.g. returning from TradeForm)
   useEffect(() => { refetch(); }, [location.pathname, refetch]);
 
+  const navigate = useNavigate();
   const s = profile ? (TIER_STYLES[profile.level.tier] ?? TIER_STYLES.bronze) : null;
 
   return (
@@ -27,19 +25,13 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-56 flex-shrink-0 bg-surface-card border-r border-surface-border flex flex-col">
         {/* Logo */}
-        <div className="px-6 py-6">
-          <div className="flex items-center gap-2.5">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-7 h-7 rounded-lg object-cover flex-shrink-0"
-            >
-              <source src="/logo.mp4" type="video/mp4" />
-            </video>
-            <span className="text-white font-semibold text-sm tracking-tight">Ascend</span>
-          </div>
+        <div className="px-4 py-5">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="w-full flex items-center justify-center hover:opacity-80 transition-opacity"
+          >
+            <img src="/ascend-logo.png" alt="Ascend" className="h-16 w-auto" />
+          </button>
         </div>
 
         <div className="px-3 mb-2">
@@ -87,20 +79,8 @@ export default function Layout() {
       </aside>
 
       {/* Main */}
-      <div className="flex-1 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/75 z-10 pointer-events-none" />
-        <video
-          ref={videoRef}
-          autoPlay
-          loop
-          muted
-          playsInline
-          onLoadedMetadata={() => { if (videoRef.current) videoRef.current.playbackRate = VIDEO_PLAYBACK_RATE; }}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        >
-          <source src="/background_vid.mp4" type="video/mp4" />
-        </video>
-        <main className="relative z-10 h-full overflow-y-auto">
+      <div className="flex-1 bg-[#111111] overflow-hidden">
+        <main className="h-full overflow-y-auto">
           <Outlet />
         </main>
       </div>

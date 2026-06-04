@@ -118,6 +118,7 @@ function runSchema() {
   try { db.exec(`ALTER TABLE trades ADD COLUMN session_type TEXT NOT NULL DEFAULT 'live'`); } catch (_) {}
   try { db.exec(`ALTER TABLE trades ADD COLUMN series_id INTEGER REFERENCES series(id) ON DELETE SET NULL`); } catch (_) {}
   try { db.exec(`ALTER TABLE entry_models ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`); } catch (_) {}
+  try { db.exec(`ALTER TABLE trades ADD COLUMN pnl_dollars REAL`); } catch (_) {}
 
   // Migrate legacy "X Backtest" asset names
   db.exec(`
