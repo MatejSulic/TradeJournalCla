@@ -113,10 +113,9 @@ export default function Dashboard() {
   const winRate    = decided ? (wins / decided) * 100 : 0;
   const rrTrades   = displayTrades.filter(t => t.risk_reward != null);
   const avgRR      = rrTrades.length ? rrTrades.reduce((s, t) => s + t.risk_reward, 0) / rrTrades.length : 0;
-  const netRR = rrTrades.length
-    ? displayTrades.filter(t => t.pnl === 'win'  && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0)
-    - displayTrades.filter(t => t.pnl === 'loss' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0)
-    : null;
+  const netRRWins = displayTrades.filter(t => t.pnl === 'win' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
+  const netRRLosses = displayTrades.filter(t => t.pnl === 'loss').length;
+  const netRR = rrTrades.length ? netRRWins - netRRLosses : null;
   const riskTrades = displayTrades.filter(t => t.risk_amount != null);
   const avgDollarRisk = riskTrades.length ? riskTrades.reduce((s, t) => s + t.risk_amount, 0) / riskTrades.length : null;
 

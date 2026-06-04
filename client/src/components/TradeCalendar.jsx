@@ -85,9 +85,9 @@ export default function TradeCalendar({ trades }) {
     const decided   = wins + losses;
     const winRate   = decided ? Math.round((wins / decided) * 100) : null;
     const days      = week.filter(d => (byDate[format(d, 'yyyy-MM-dd')] || []).length > 0).length;
-    const winRR  = ts.filter(t => t.pnl === 'win'  && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
-    const lossRR = ts.filter(t => t.pnl === 'loss' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
-    const hasRR  = ts.some(t => t.risk_reward != null);
+    const winRR  = ts.filter(t => t.pnl === 'win' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
+    const lossRR = ts.filter(t => t.pnl === 'loss').length;
+    const hasRR  = ts.some(t => t.pnl === 'win' && t.risk_reward != null) || lossRR > 0;
     const netRR  = hasRR ? winRR - lossRR : null;
     return { count: ts.length, wins, losses, breakevens, winRate, days, netRR };
   };
