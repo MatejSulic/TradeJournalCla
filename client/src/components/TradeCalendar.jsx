@@ -74,7 +74,13 @@ export default function TradeCalendar({ trades }) {
     let result = 'breakeven';
     if (wins > losses)  result = 'win';
     if (losses > wins)  result = 'loss';
-    return { ts, wins, losses, breakevens, winRate, result, count: ts.length };
+    const winRR  = ts.filter(t => t.pnl === 'win' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
+    const lossRR = ts.filter(t => t.pnl === 'loss').length;
+    const hasRR  = ts.some(t => t.pnl === 'win' && t.risk_reward != null) || lossRR > 0;
+    const netRR  = hasRR ? winRR - lossRR : null;
+    const dollarTs = ts.filter(t => t.pnl_dollars != null);
+    const netDollars = dollarTs.length > 0 ? dollarTs.reduce((s, t) => s + t.pnl_dollars, 0) : null;
+    return { ts, wins, losses, breakevens, winRate, result, count: ts.length, netRR, netDollars };
   };
 
   const weekInfo = (week) => {
@@ -213,32 +219,42 @@ export default function TradeCalendar({ trades }) {
 
                       {/* Trade summary */}
                       {info && inMonth && (
-                        <div className="mt-5 flex flex-col gap-1 pr-4">
-                          {/* Main result label — W / L / BE or multi */}
-                          <span
-                            className="text-sm font-bold leading-tight"
-                            style={{ color: pnlColor(info.result) }}
-                          >
-                            {info.count === 1
-                              ? ({ win: 'W', loss: 'L', breakeven: 'BE' }[info.ts[0].pnl])
-                              : `${info.wins}W / ${info.losses}L`}
-                          </span>
+                        <>
+                        {/* W / L / BE top-left */}
+                        <span
+                          className="absolute top-2 left-2.5 text-xs font-bold leading-tight"
+                          style={{ color: pnlColor(info.result) }}
+                        >
+                          {info.count === 1
+                            ? ({ win: 'W', loss: 'L', breakeven: 'BE' }[info.ts[0].pnl])
+                            : `${info.wins}W/${info.losses}L`}
+                        </span>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pt-4">
+                          {/* Dollar PnL */}
+                          {info.netDollars !== null ? (
+                            <span
+                              className="text-base font-bold leading-tight"
+                              style={{ color: info.netDollars >= 0 ? COLOR_MAIN : '#fb923c' }}
+                            >
+                              {info.netDollars >= 0 ? '+' : '-'}${Math.abs(info.netDollars).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-base font-bold leading-tight"
+                              style={{ color: pnlColor(info.result) }}
+                            >
+                              {info.count === 1
+                                ? ({ win: 'W', loss: 'L', breakeven: 'BE' }[info.ts[0].pnl])
+                                : `${info.wins}W / ${info.losses}L`}
+                            </span>
+                          )}
 
                           {/* Trade count */}
                           <span className="text-[11px] text-slate-500 leading-tight">
                             {info.count} {info.count === 1 ? 'trade' : 'trades'}
                           </span>
-
-                          {/* Win rate (only when multiple trades) */}
-                          {info.count > 1 && info.winRate !== null && (
-                            <span
-                              className="text-[11px] leading-tight"
-                              style={{ color: info.winRate >= 50 ? `${COLOR_MAIN}99` : '#fb923c99' }}
-                            >
-                              {info.winRate}%
-                            </span>
-                          )}
                         </div>
+                        </>
                       )}
                     </div>
                   );

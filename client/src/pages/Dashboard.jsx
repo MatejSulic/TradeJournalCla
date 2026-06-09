@@ -412,15 +412,13 @@ export default function Dashboard() {
 
             <div className="card flex flex-col flex-1 min-h-0">
               <h2 className="text-sm font-semibold text-white mb-3 flex-shrink-0">Win Rate</h2>
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 flex items-center justify-center">
                 {pieData.length === 0 ? (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-slate-600 text-sm">No trades yet.</p>
-                  </div>
+                  <p className="text-slate-600 text-sm">No trades yet.</p>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={72} paddingAngle={3} dataKey="value">
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={3} dataKey="value">
                         {pieData.map(entry => <Cell key={entry.key} fill={PIE_COLORS[entry.key]} />)}
                       </Pie>
                       <Tooltip
@@ -429,11 +427,11 @@ export default function Dashboard() {
                         itemStyle={{ color: '#fff' }}
                         formatter={(v, name) => [v, name]}
                       />
-                      <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" fill={COLOR_MAIN} fontSize={20} fontWeight={700}>
+                      <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" fill={COLOR_MAIN} fontSize={22} fontWeight={700}>
                         {decided ? `${winRate.toFixed(1)}%` : '—'}
                       </text>
-                      <text x="50%" y="58%" textAnchor="middle" dominantBaseline="middle" fill="#4b5563" fontSize={11}>
-                        Win Rate
+                      <text x="50%" y="57%" textAnchor="middle" dominantBaseline="middle" fill="#6b7280" fontSize={11}>
+                        win rate
                       </text>
                     </PieChart>
                   </ResponsiveContainer>
