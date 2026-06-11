@@ -17,6 +17,7 @@ app.use('/api/entry-models', require('./routes/entryModels'));
 app.use('/api/trades', require('./routes/trades'));
 app.use('/api/gamification', require('./routes/gamification'));
 app.use('/api/backup', require('./routes/backup'));
+app.use('/api/expenses', require('./routes/expenses'));
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

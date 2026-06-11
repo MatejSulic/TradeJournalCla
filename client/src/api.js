@@ -65,6 +65,19 @@ export const createSeries = (data)     => req('/series', { method: 'POST', heade
 export const updateSeries = (id, data) => req(`/series/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
 export const deleteSeries = (id)       => req(`/series/${id}`, { method: 'DELETE' });
 
+// Expenses — prop firm accounts & payouts
+export const getExpenseAccounts = () => req('/expenses/accounts');
+export const createExpenseAccount = (data) =>
+  req('/expenses/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+export const updateExpenseAccount = (id, data) =>
+  req(`/expenses/accounts/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+export const deleteExpenseAccount = (id) =>
+  req(`/expenses/accounts/${id}`, { method: 'DELETE' });
+export const createPayout = (accountId, data) =>
+  req(`/expenses/accounts/${accountId}/payouts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+export const deletePayout = (id) =>
+  req(`/expenses/payouts/${id}`, { method: 'DELETE' });
+
 // Entry models
 export const getEntryModels = () => req('/entry-models');
 export const createEntryModel = (name) =>

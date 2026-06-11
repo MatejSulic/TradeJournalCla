@@ -7,7 +7,7 @@ import {
   BarChart, Bar, LabelList,
 } from 'recharts';
 import { format, parseISO, getISOWeek, getISOWeekYear, getDay } from 'date-fns';
-import { getTrades, getEntryModels, getSeries, reorderEntryModels } from '../api';
+import { getTrades, getEntryModels, getSeries, reorderEntryModels, getExpenseAccounts } from '../api';
 import StatCard from '../components/StatCard';
 import DatePicker from '../components/DatePicker';
 import TradeCalendar from '../components/TradeCalendar';
@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
+  const [passedDates, setPassedDates] = useState(new Set());
   const [dragId, setDragId] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -46,6 +47,13 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { getEntryModels().then(setModels); getSeries().then(setSeriesList); }, []);
+  useEffect(() => {
+    getExpenseAccounts().then(accounts => {
+      setPassedDates(new Set(
+        accounts.filter(a => a.passed_at).map(a => a.passed_at.slice(0, 10))
+      ));
+    });
+  }, []);
   useEffect(() => {
     const apiFilters = { ...filters, session_type: filters.session_type === 'all' ? '' : filters.session_type };
     getTrades(apiFilters).then(setTrades);
@@ -477,7 +485,7 @@ export default function Dashboard() {
 
         {/* Right: calendar */}
         <div className="min-h-0">
-          <TradeCalendar trades={displayTrades} />
+          <TradeCalendar trades={displayTrades} passedDates={passedDates} />
         </div>
 
       </div>{/* end charts+calendar grid */}

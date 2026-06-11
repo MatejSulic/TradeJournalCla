@@ -15,13 +15,14 @@ const HATCH = {
     'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.025) 5px, rgba(255,255,255,0.025) 10px)',
 };
 
-export default function TradeCalendar({ trades }) {
+export default function TradeCalendar({ trades, passedDates = new Set() }) {
   const navigate = useNavigate();
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
   const [popup, setPopup] = useState(null); // { date, trades } | null
+  const [showPnl, setShowPnl] = useState(true);
 
   const handleDayClick = (date, info) => {
     if (!info) return;
@@ -136,6 +137,27 @@ export default function TradeCalendar({ trades }) {
           Current Month
         </button>
 
+        <button
+          onClick={() => setShowPnl(v => !v)}
+          title={showPnl ? 'Hide P&L' : 'Show P&L'}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border transition-colors ${
+            showPnl
+              ? 'border-[#c6f135]/40 text-[#c6f135] hover:border-[#c6f135]/70'
+              : 'border-surface-border text-slate-500 hover:text-white hover:border-slate-500'
+          }`}
+        >
+          {showPnl ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          )}
+          P&L
+        </button>
+
         {/* Legend */}
         <div className="flex items-center gap-3 ml-auto">
           {[['win', COLOR_MAIN, 'W'], ['loss', '#fb923c', 'L'], ['breakeven', '#94a3b8', 'BE']].map(([k, c, l]) => (
@@ -182,12 +204,17 @@ export default function TradeCalendar({ trades }) {
                   const info      = dayInfo(date);
                   const inMonth   = isSameMonth(date, calMonth);
                   const todayFlag = isToday(date);
+                  const key       = format(date, 'yyyy-MM-dd');
+                  const isPassed  = inMonth && info?.result === 'win' && passedDates.has(key);
 
                   // Determine border/bg tint based on result
                   let cellBorder = 'border border-transparent';
                   let cellBg     = '';
                   if (info && inMonth) {
-                    if (info.result === 'win') {
+                    if (isPassed) {
+                      cellBorder = 'border border-[#c6f135]/70';
+                      cellBg     = 'bg-[#c6f135]/[0.08]';
+                    } else if (info.result === 'win') {
                       cellBorder = 'border border-[#c6f135]/25';
                       cellBg     = 'bg-[#c6f135]/[0.04]';
                     } else if (info.result === 'loss') {
@@ -220,6 +247,11 @@ export default function TradeCalendar({ trades }) {
                       {/* Trade summary */}
                       {info && inMonth && (
                         <>
+                        {isPassed && (
+                          <span className="absolute bottom-2 right-2 text-[9px] font-bold tracking-wide px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(198,241,53,0.15)', color: COLOR_MAIN }}>
+                            PASS
+                          </span>
+                        )}
                         {/* W / L / BE top-left */}
                         <span
                           className="absolute top-2 left-2.5 text-xs font-bold leading-tight"
@@ -231,7 +263,7 @@ export default function TradeCalendar({ trades }) {
                         </span>
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pt-4">
                           {/* Dollar PnL */}
-                          {info.netDollars !== null ? (
+                          {info.netDollars !== null && showPnl ? (
                             <span
                               className="text-base font-bold leading-tight"
                               style={{ color: info.netDollars >= 0 ? COLOR_MAIN : '#fb923c' }}

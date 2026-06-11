@@ -76,6 +76,29 @@ function runSchema() {
       created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
 
+    -- Prop firm expenses
+    CREATE TABLE IF NOT EXISTS prop_accounts (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      firm_name      TEXT    NOT NULL,
+      account_size   REAL    NOT NULL,
+      purchase_price REAL    NOT NULL,
+      status         TEXT    NOT NULL DEFAULT 'eval'
+                               CHECK(status IN ('eval', 'funded', 'blown')),
+      purchased_at   TEXT    NOT NULL,
+      notes          TEXT,
+      created_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS prop_payouts (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id   INTEGER NOT NULL REFERENCES prop_accounts(id) ON DELETE CASCADE,
+      amount       REAL    NOT NULL,
+      payout_date  TEXT    NOT NULL,
+      notes        TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+
     -- Gamification tables
     CREATE TABLE IF NOT EXISTS player_profile (
       user_id         TEXT    PRIMARY KEY DEFAULT 'local',
@@ -119,6 +142,8 @@ function runSchema() {
   try { db.exec(`ALTER TABLE trades ADD COLUMN series_id INTEGER REFERENCES series(id) ON DELETE SET NULL`); } catch (_) {}
   try { db.exec(`ALTER TABLE entry_models ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`); } catch (_) {}
   try { db.exec(`ALTER TABLE trades ADD COLUMN pnl_dollars REAL`); } catch (_) {}
+  try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN passed_at TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN blown_at TEXT`); } catch (_) {}
 
   // Migrate legacy "X Backtest" asset names
   db.exec(`

@@ -4,10 +4,11 @@ import { useGamification, TIER_STYLES } from '../hooks/useGamification';
 import XPBar from './XPBar';
 
 const links = [
-  { to: '/dashboard', label: 'Dashboard', icon: ChartIcon },
-  { to: '/trades',    label: 'Trades',    icon: ListIcon  },
-  { to: '/series',    label: 'Series',    icon: SeriesIcon },
-  { to: '/profile',   label: 'Profile',   icon: PersonIcon },
+  { to: '/dashboard', label: 'Dashboard', icon: ChartIcon   },
+  { to: '/trades',    label: 'Trades',    icon: ListIcon    },
+  { to: '/series',    label: 'Series',    icon: SeriesIcon  },
+  { to: '/expenses',  label: 'Expenses',  icon: WalletIcon  },
+  { to: '/profile',   label: 'Profile',   icon: PersonIcon  },
 ];
 
 export default function Layout() {
@@ -109,6 +110,15 @@ function SeriesIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h10" />
+    </svg>
+  );
+}
+
+function WalletIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 12h5v4h-5a2 2 0 010-4z" />
     </svg>
   );
 }
