@@ -7,16 +7,17 @@ import {
   addDays, addMonths, subMonths,
   isSameMonth, isToday, getISOWeek,
 } from 'date-fns';
-
-const COLOR_MAIN = '#c6f135';
-
-const HATCH = {
-  background:
-    'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.025) 5px, rgba(255,255,255,0.025) 10px)',
-};
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function TradeCalendar({ trades, passedDates = new Set() }) {
   const navigate = useNavigate();
+  const { isDark } = useTheme();
+  const COLOR_MAIN = isDark ? '#c6f135' : '#65a30d';
+  const HATCH = {
+    background: isDark
+      ? 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.025) 5px, rgba(255,255,255,0.025) 10px)'
+      : 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.04) 5px, rgba(0,0,0,0.04) 10px)',
+  };
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
@@ -110,21 +111,21 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
     <div className="card !p-0 overflow-hidden h-full flex flex-col">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-3 p-4 border-b border-surface-border">
-        <h2 className="text-sm font-semibold text-white">Trading Calendar</h2>
+        <h2 className="text-sm font-semibold dark:text-white text-slate-900">Trading Calendar</h2>
 
         <div className="flex items-center gap-1">
           <button
             onClick={() => setCalMonth(m => subMonths(m, 1))}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 hover:text-white transition-colors text-base"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-base"
           >
             ‹
           </button>
-          <span className="text-sm font-semibold text-white w-[130px] text-center">
+          <span className="text-sm font-semibold dark:text-white text-slate-900 w-[130px] text-center">
             {format(calMonth, 'MMMM yyyy')}
           </span>
           <button
             onClick={() => setCalMonth(m => addMonths(m, 1))}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 hover:text-white transition-colors text-base"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-base"
           >
             ›
           </button>
@@ -132,7 +133,7 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
 
         <button
           onClick={goToCurrent}
-          className="text-xs px-3 py-1 rounded-lg border border-surface-border text-slate-400 hover:text-white hover:border-slate-500 transition-colors"
+          className="text-xs px-3 py-1 rounded-lg border border-surface-border text-slate-400 dark:hover:text-white hover:text-slate-900 hover:border-slate-500 transition-colors"
         >
           Current Month
         </button>
@@ -143,7 +144,7 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
           className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border transition-colors ${
             showPnl
               ? 'border-[#c6f135]/40 text-[#c6f135] hover:border-[#c6f135]/70'
-              : 'border-surface-border text-slate-500 hover:text-white hover:border-slate-500'
+              : 'border-surface-border text-slate-500 dark:hover:text-white hover:text-slate-900 hover:border-slate-500'
           }`}
         >
           {showPnl ? (
@@ -341,12 +342,12 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
           >
             {/* Header */}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold dark:text-white text-slate-900">
                 {format(popup.date, 'EEEE, d. MMMM yyyy')}
               </span>
               <button
                 onClick={() => setPopup(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 hover:text-white transition-colors text-lg leading-none"
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-lg leading-none"
               >
                 ×
               </button>
@@ -367,7 +368,7 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
                     className="flex items-center justify-between rounded-xl border border-surface-border bg-surface-raised/40 px-4 py-3 hover:bg-surface-raised transition-colors text-left"
                   >
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-semibold text-white">
+                      <span className="text-sm font-semibold dark:text-white text-slate-900">
                         {t.asset}
                         <span className="ml-2 text-xs text-slate-500 font-normal capitalize">{t.direction}</span>
                       </span>

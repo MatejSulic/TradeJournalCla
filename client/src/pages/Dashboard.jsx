@@ -11,17 +11,17 @@ import { getTrades, getEntryModels, getSeries, reorderEntryModels, getExpenseAcc
 import StatCard from '../components/StatCard';
 import DatePicker from '../components/DatePicker';
 import TradeCalendar from '../components/TradeCalendar';
+import { useThemeColors } from '../hooks/useThemeColors';
 
-const COLOR_MAIN = '#c6f135';
-const COLOR_NEG  = '#7c3aed';
-const PIE_COLORS = { win: COLOR_MAIN, loss: COLOR_NEG, breakeven: '#3f3f3f' };
 const PNL_STYLE = {
   win:       'bg-profit/10 text-profit border border-profit/20',
   loss:      'bg-loss/10 text-loss border border-loss/20',
-  breakeven: 'bg-white/5 text-slate-400 border border-white/10',
+  breakeven: 'dark:bg-white/5 bg-black/5 text-slate-500 dark:border-white/10 border-black/10',
 };
 
 export default function Dashboard() {
+  const colors = useThemeColors();
+
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
@@ -119,7 +119,7 @@ export default function Dashboard() {
   const breakevens = displayTrades.filter(t => t.pnl === 'breakeven').length;
   const decided    = wins + losses;
   const winRate    = decided ? (wins / decided) * 100 : 0;
-  const rrTrades   = displayTrades.filter(t => t.risk_reward != null);
+  const rrTrades   = displayTrades.filter(t => t.risk_reward != null && t.risk_reward !== 0);
   const avgRR      = rrTrades.length ? rrTrades.reduce((s, t) => s + t.risk_reward, 0) / rrTrades.length : 0;
   const netRRWins = displayTrades.filter(t => t.pnl === 'win' && t.risk_reward != null).reduce((s, t) => s + t.risk_reward, 0);
   const netRRLosses = displayTrades.filter(t => t.pnl === 'loss').length;
@@ -135,6 +135,8 @@ export default function Dashboard() {
       if (t.pnl === 'loss') score -= 1;
       return { date: t.created_at, score };
     });
+
+  const PIE_COLORS = { win: colors.colorMain, loss: colors.colorNeg, breakeven: colors.breakeven };
 
   const pieData = [
     { name: 'Win', value: wins, key: 'win' },
@@ -168,12 +170,18 @@ export default function Dashboard() {
     filters.entry_model_id.length && `${filters.entry_model_id.length} setup${filters.entry_model_id.length > 1 ? 's' : ''}`,
   ].filter(Boolean);
 
+  const tooltipStyle = {
+    contentStyle: { background: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: 12, fontSize: 12 },
+    labelStyle: { color: colors.labelColor },
+    itemStyle: { color: colors.tick === '#4b5563' ? '#fff' : '#1e293b' },
+  };
+
   return (
     <div className="p-6 flex flex-col gap-4 mx-auto" style={{ maxWidth: '96vw', height: '96vh' }}>
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
+          <h1 className="text-2xl font-semibold dark:text-white text-slate-900">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-0.5">Your trading performance overview</p>
         </div>
         <Link to="/trades/new" className="btn-primary">
@@ -195,7 +203,7 @@ export default function Dashboard() {
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest flex-shrink-0">Filters</span>
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
             {filterChips.map(chip => (
-              <span key={chip} className="text-[11px] px-2 py-0.5 rounded-md bg-surface-raised text-slate-300 border border-surface-border">
+              <span key={chip} className="text-[11px] px-2 py-0.5 rounded-md bg-surface-raised text-slate-500 dark:text-slate-300 border border-surface-border">
                 {chip}
               </span>
             ))}
@@ -225,79 +233,93 @@ export default function Dashboard() {
           style={{ gridTemplateRows: filtersOpen ? '1fr' : '0fr' }}
         >
           <div className="overflow-hidden">
-          <div className="px-5 pb-5 pt-3 border-t border-surface-border space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <div className="flex rounded-lg border border-surface-border overflow-hidden">
-                {[['all', 'All'], ['live', 'Live'], ['backtest', 'Backtest']].map(([val, label]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => set('session_type', val)}
-                    className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      filters.session_type === val
-                        ? val === 'live'
-                          ? 'bg-profit text-black'
-                          : val === 'backtest'
-                            ? 'bg-accent text-black'
-                            : 'bg-surface-raised text-white'
-                        : 'text-slate-500 hover:text-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+          <div className="px-5 pb-5 pt-4 border-t border-surface-border space-y-4">
+
+            {/* Grid: 4 columns × 2 rows */}
+            <div className="grid grid-cols-4 gap-x-5 gap-y-4">
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Session</span>
+                <div className="flex rounded-lg border border-surface-border overflow-hidden w-fit">
+                  {[['all', 'All'], ['live', 'Live'], ['backtest', 'Backtest']].map(([val, label]) => (
+                    <button key={val} type="button" onClick={() => set('session_type', val)}
+                      className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        filters.session_type === val
+                          ? val === 'live' ? 'bg-profit text-black' : val === 'backtest' ? 'bg-accent text-black' : 'bg-surface-raised dark:text-white text-slate-900'
+                          : 'text-slate-500 dark:hover:text-white hover:text-slate-900'
+                      }`}>{label}</button>
+                  ))}
+                </div>
               </div>
-              <select className="input w-32" value={filters.asset} onChange={e => set('asset', e.target.value)}>
-                <option value="">All assets</option>
-                {['NQ','MNQ','ES','MES'].map(a => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-              <select className="input w-40" value={filters.series_id} onChange={e => set('series_id', e.target.value)}>
-                <option value="">All series</option>
-                {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <select className="input w-36" value={filters.direction} onChange={e => set('direction', e.target.value)}>
-                <option value="">All directions</option>
-                <option value="long">Long</option>
-                <option value="short">Short</option>
-              </select>
-              <select className="input w-36" value={filters.pnl} onChange={e => set('pnl', e.target.value)}>
-                <option value="">All results</option>
-                <option value="win">Win</option>
-                <option value="loss">Loss</option>
-                <option value="breakeven">Breakeven</option>
-              </select>
-              <div className="flex items-center gap-2">
-                <DatePicker className="w-40" value={filters.from} onChange={v => set('from', v)} placeholder="From" />
-                <span className="text-slate-600 text-sm">–</span>
-                <DatePicker className="w-40" value={filters.to} onChange={v => set('to', v)} placeholder="To" />
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Asset</span>
+                <select className="input w-full" value={filters.asset} onChange={e => set('asset', e.target.value)}>
+                  <option value="">All assets</option>
+                  {['NQ','MNQ','ES','MES'].map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
               </div>
-              <div className="flex rounded-lg border border-surface-border overflow-hidden">
-                {[['', 'All'], ['1', 'Mon'], ['2', 'Tue'], ['3', 'Wed'], ['4', 'Thu'], ['5', 'Fri']].map(([val, label]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => set('dow', val)}
-                    className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      (searchParams.get('dow') || '') === val
-                        ? 'bg-surface-raised text-white'
-                        : 'text-slate-500 hover:text-white'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Direction</span>
+                <select className="input w-full" value={filters.direction} onChange={e => set('direction', e.target.value)}>
+                  <option value="">All directions</option>
+                  <option value="long">Long</option>
+                  <option value="short">Short</option>
+                </select>
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Result</span>
+                <select className="input w-full" value={filters.pnl} onChange={e => set('pnl', e.target.value)}>
+                  <option value="">All results</option>
+                  <option value="win">Win</option>
+                  <option value="loss">Loss</option>
+                  <option value="breakeven">Breakeven</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Series</span>
+                <select className="input w-full" value={filters.series_id} onChange={e => set('series_id', e.target.value)}>
+                  <option value="">All series</option>
+                  {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">From</span>
+                <DatePicker className="w-full" value={filters.from} onChange={v => set('from', v)} placeholder="Start date" />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">To</span>
+                <DatePicker className="w-full" value={filters.to} onChange={v => set('to', v)} placeholder="End date" />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Day of Week</span>
+                <div className="flex rounded-lg border border-surface-border overflow-hidden w-fit">
+                  {[['', '—'], ['1', 'Mo'], ['2', 'Tu'], ['3', 'We'], ['4', 'Th'], ['5', 'Fr']].map(([val, label]) => (
+                    <button key={val} type="button" onClick={() => set('dow', val)}
+                      className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                        (searchParams.get('dow') || '') === val ? 'bg-surface-raised dark:text-white text-slate-900' : 'text-slate-500 dark:hover:text-white hover:text-slate-900'
+                      }`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+
             </div>
+
+            {/* Setups row */}
             {models.length > 0 && (
               <div
-                className="flex flex-wrap gap-1.5 items-center pt-2 border-t border-surface-border"
+                className="flex flex-wrap gap-1.5 items-center pt-3 border-t border-surface-border"
                 onDrop={handleDrop}
                 onDragOver={e => e.preventDefault()}
                 onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndex(null); }}
               >
-                <span className="text-[11px] text-slate-600 self-center mr-1 uppercase tracking-wide">Setups:</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mr-2">Setups</span>
                 {models.map((m, index) => {
                   const active = filters.entry_model_id.includes(m.id);
                   return (
@@ -318,7 +340,7 @@ export default function Dashboard() {
                         } ${
                           active
                             ? 'bg-accent text-black border-accent'
-                            : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
+                            : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 dark:hover:text-white hover:text-slate-900'
                         }`}
                       >
                         {m.name}
@@ -331,6 +353,7 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+
           </div>
           </div>
         </div>
@@ -342,18 +365,18 @@ export default function Dashboard() {
         {/* Total Trades + Avg/Week */}
         <div className="card flex flex-col gap-1.5 py-4">
           <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Total Trades</span>
-          <span className="text-2xl font-semibold tabular-nums leading-none text-white">{trades.length}</span>
+          <span className="text-2xl font-semibold tabular-nums leading-none dark:text-white text-slate-900">{displayTrades.length}</span>
           <span className="text-xs text-slate-500">{avgTradesPerWeek} / week</span>
         </div>
 
         <div className="card flex flex-col gap-1.5 py-4">
           <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Win Rate</span>
           <div className="flex items-baseline gap-2.5">
-            <span className={`text-2xl font-semibold tabular-nums leading-none ${decided ? (winRate >= 50 ? 'text-profit' : 'text-loss') : 'text-white'}`}>
+            <span className={`text-2xl font-semibold tabular-nums leading-none ${decided ? (winRate >= 50 ? 'text-profit' : 'text-loss') : 'dark:text-white text-slate-900'}`}>
               {decided ? `${winRate.toFixed(1)}%` : '—'}
             </span>
             {netRR !== null && (
-              <span className="text-sm font-semibold tabular-nums leading-none" style={{ color: netRR >= 0 ? '#c6f135' : '#fb923c' }}>
+              <span className="text-sm font-semibold tabular-nums leading-none" style={{ color: netRR >= 0 ? colors.colorMain : '#fb923c' }}>
                 {netRR >= 0 ? '+' : ''}{netRR.toFixed(2)}R
               </span>
             )}
@@ -382,7 +405,7 @@ export default function Dashboard() {
 
           {/* Performance curve */}
           <div className="card col-span-2 flex flex-col min-h-0">
-            <h2 className="text-sm font-semibold text-white mb-4 flex-shrink-0">Performance Curve</h2>
+            <h2 className="text-sm font-semibold dark:text-white text-slate-900 mb-4 flex-shrink-0">Performance Curve</h2>
             <div className="flex-1 min-h-0">
               {equityData.length < 2 ? (
                 <div className="flex items-center justify-center h-full">
@@ -391,24 +414,25 @@ export default function Dashboard() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={equityData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
                     <XAxis
                       dataKey="date"
                       tickFormatter={v => { try { return format(parseISO(v), 'MMM d'); } catch { return v; } }}
-                      tick={{ fill: '#4b5563', fontSize: 11 }}
-                      axisLine={{ stroke: '#1f1f1f' }}
+                      tick={{ fill: colors.tick, fontSize: 11 }}
+                      axisLine={{ stroke: colors.grid }}
                       tickLine={false}
                     />
-                    <YAxis tick={{ fill: '#4b5563', fontSize: 11 }} axisLine={false} tickLine={false} width={36} allowDecimals={false} />
+                    <YAxis tick={{ fill: colors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={36} allowDecimals={false} />
                     <Tooltip
-                      contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12, color: '#fff' }}
-                      labelStyle={{ color: '#6b7280' }}
+                      contentStyle={{ background: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: 12, fontSize: 12, color: colors.tick === '#4b5563' ? '#fff' : '#1e293b' }}
+                      labelStyle={{ color: colors.labelColor }}
+                      itemStyle={{ color: colors.tick === '#4b5563' ? '#fff' : '#1e293b' }}
                       formatter={v => [v, 'Score']}
                       labelFormatter={v => { try { return format(parseISO(v), 'MMM d, yyyy HH:mm'); } catch { return v; } }}
-                      cursor={{ stroke: '#2a2a2a' }}
+                      cursor={{ stroke: colors.cursorStroke }}
                     />
-                    <ReferenceLine y={0} stroke="#2a2a2a" />
-                    <Line type="monotone" dataKey="score" stroke={COLOR_MAIN} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: COLOR_MAIN, strokeWidth: 0 }} />
+                    <ReferenceLine y={0} stroke={colors.tooltipBorder} />
+                    <Line type="monotone" dataKey="score" stroke={colors.colorMain} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: colors.colorMain, strokeWidth: 0 }} />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -419,7 +443,7 @@ export default function Dashboard() {
           <div className="flex flex-col gap-4 min-h-0">
 
             <div className="card flex flex-col flex-1 min-h-0">
-              <h2 className="text-sm font-semibold text-white mb-3 flex-shrink-0">Win Rate</h2>
+              <h2 className="text-sm font-semibold dark:text-white text-slate-900 mb-3 flex-shrink-0">Win Rate</h2>
               <div className="flex-1 min-h-0 flex items-center justify-center">
                 {pieData.length === 0 ? (
                   <p className="text-slate-600 text-sm">No trades yet.</p>
@@ -430,15 +454,15 @@ export default function Dashboard() {
                         {pieData.map(entry => <Cell key={entry.key} fill={PIE_COLORS[entry.key]} />)}
                       </Pie>
                       <Tooltip
-                        contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12 }}
-                        labelStyle={{ color: '#6b7280' }}
-                        itemStyle={{ color: '#fff' }}
+                        contentStyle={{ background: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: 12, fontSize: 12 }}
+                        labelStyle={{ color: colors.labelColor }}
+                        itemStyle={{ color: colors.tick === '#4b5563' ? '#fff' : '#1e293b' }}
                         formatter={(v, name) => [v, name]}
                       />
-                      <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" fill={COLOR_MAIN} fontSize={22} fontWeight={700}>
+                      <text x="50%" y="47%" textAnchor="middle" dominantBaseline="middle" fill={colors.colorMain} fontSize={22} fontWeight={700}>
                         {decided ? `${winRate.toFixed(1)}%` : '—'}
                       </text>
-                      <text x="50%" y="57%" textAnchor="middle" dominantBaseline="middle" fill="#6b7280" fontSize={11}>
+                      <text x="50%" y="57%" textAnchor="middle" dominantBaseline="middle" fill={colors.labelColor} fontSize={11}>
                         win rate
                       </text>
                     </PieChart>
@@ -448,7 +472,7 @@ export default function Dashboard() {
             </div>
 
             <div className="card flex flex-col flex-1 min-h-0">
-              <h2 className="text-sm font-semibold text-white mb-3 flex-shrink-0">Win Rate by Day</h2>
+              <h2 className="text-sm font-semibold dark:text-white text-slate-900 mb-3 flex-shrink-0">Win Rate by Day</h2>
               <div className="flex-1 min-h-0">
                 {dayStats.every(d => d.winRate === null) ? (
                   <div className="flex items-center justify-center h-full">
@@ -457,22 +481,22 @@ export default function Dashboard() {
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dayStats} margin={{ top: 18, right: 8, left: 0, bottom: 4 }} barSize={22}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
-                      <XAxis dataKey="day" tick={{ fill: '#4b5563', fontSize: 11 }} axisLine={{ stroke: '#1f1f1f' }} tickLine={false} />
-                      <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fill: '#4b5563', fontSize: 11 }} axisLine={false} tickLine={false} width={38} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
+                      <XAxis dataKey="day" tick={{ fill: colors.tick, fontSize: 11 }} axisLine={{ stroke: colors.grid }} tickLine={false} />
+                      <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fill: colors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={38} />
                       <Tooltip
-                        contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12 }}
-                        labelStyle={{ color: '#6b7280' }}
-                        itemStyle={{ color: '#fff' }}
+                        contentStyle={{ background: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: 12, fontSize: 12 }}
+                        labelStyle={{ color: colors.labelColor }}
+                        itemStyle={{ color: colors.tick === '#4b5563' ? '#fff' : '#1e293b' }}
                         formatter={v => v !== null ? [`${v}%`, 'Win Rate'] : ['—', 'Win Rate']}
-                        cursor={{ fill: '#1f1f1f' }}
+                        cursor={{ fill: colors.grid }}
                       />
-                      <ReferenceLine y={50} stroke="#2a2a2a" strokeDasharray="4 4" />
+                      <ReferenceLine y={50} stroke={colors.tooltipBorder} strokeDasharray="4 4" />
                       <Bar dataKey="winRate" radius={[4, 4, 0, 0]}>
                         {dayStats.map((entry, index) => (
-                          <Cell key={index} fill={entry.winRate === null ? '#2a2a2a' : entry.winRate >= 50 ? COLOR_MAIN : COLOR_NEG} />
+                          <Cell key={index} fill={entry.winRate === null ? colors.tooltipBorder : entry.winRate >= 50 ? colors.colorMain : colors.colorNeg} />
                         ))}
-                        <LabelList dataKey="winRate" position="top" formatter={v => v !== null ? `${v}%` : ''} style={{ fill: COLOR_MAIN, fontSize: 11, fontWeight: 600 }} />
+                        <LabelList dataKey="winRate" position="top" formatter={v => v !== null ? `${v}%` : ''} style={{ fill: colors.colorMain, fontSize: 11, fontWeight: 600 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>

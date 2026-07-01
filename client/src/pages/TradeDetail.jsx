@@ -7,13 +7,13 @@ import ConfirmDialog from '../components/ConfirmDialog';
 const PNL_STYLE = {
   win:       'bg-profit/10 text-profit border border-profit/20',
   loss:      'bg-loss/10 text-loss border border-loss/20',
-  breakeven: 'bg-white/5 text-slate-400 border border-white/10',
+  breakeven: 'dark:bg-white/5 bg-black/5 text-slate-500 dark:border-white/10 border-black/10',
 };
 
 const RM_STYLE = {
   low:     'bg-loss/10 text-loss border border-loss/20',
   perfect: 'bg-profit/10 text-profit border border-profit/20',
-  high:    'bg-accent/10 text-black border border-accent/30',
+  high:    'bg-accent/10 text-accent border border-accent/30',
 };
 
 export default function TradeDetail() {
@@ -64,7 +64,7 @@ export default function TradeDetail() {
         <div className="space-y-2">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm transition-colors w-fit"
+            className="flex items-center gap-1.5 text-slate-500 dark:hover:text-white hover:text-slate-900 text-sm transition-colors w-fit"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -72,7 +72,7 @@ export default function TradeDetail() {
             Back
           </button>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-white">{trade.asset}</h1>
+            <h1 className="text-2xl font-semibold dark:text-white text-slate-900">{trade.asset}</h1>
             {trade.session_type === 'backtest' && (
               <span className="text-xs font-semibold uppercase px-2.5 py-1 rounded-lg border bg-accent/10 text-accent border-accent/20">
                 Backtest
@@ -105,7 +105,7 @@ export default function TradeDetail() {
         <div className="card flex items-start gap-6">
           <div>
             <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">R:R</p>
-            <p className="text-xl font-semibold text-white tabular-nums">
+            <p className="text-xl font-semibold dark:text-white text-slate-900 tabular-nums">
               {trade.risk_reward != null ? `${trade.risk_reward.toFixed(2)}R` : '—'}
             </p>
           </div>
@@ -120,7 +120,7 @@ export default function TradeDetail() {
           {trade.risk_amount != null && (
             <div>
               <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">Risk $</p>
-              <p className="text-xl font-semibold text-white tabular-nums">${trade.risk_amount.toFixed(2)}</p>
+              <p className="text-xl font-semibold dark:text-white text-slate-900 tabular-nums">${trade.risk_amount.toFixed(2)}</p>
             </div>
           )}
           {trade.risk_management && (
@@ -187,7 +187,7 @@ export default function TradeDetail() {
         >
           {/* Close */}
           <button
-            className="absolute top-5 right-5 w-9 h-9 rounded-xl bg-surface-raised border border-surface-border text-slate-400 hover:text-white flex items-center justify-center transition-colors text-lg z-10"
+            className="absolute top-5 right-5 w-9 h-9 rounded-xl bg-surface-raised border border-surface-border text-slate-400 dark:hover:text-white hover:text-slate-900 flex items-center justify-center transition-colors text-lg z-10"
             onClick={() => { setLightbox(null); setZoom(1); setPan({ x: 0, y: 0 }); }}
           >
             ✕
@@ -196,17 +196,17 @@ export default function TradeDetail() {
           {/* Zoom controls */}
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-surface-raised border border-surface-border rounded-xl px-3 py-1.5 z-10">
             <button
-              className="w-7 h-7 rounded-lg text-slate-400 hover:text-white transition-colors text-xl leading-none"
+              className="w-7 h-7 rounded-lg text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-xl leading-none"
               onClick={e => { e.stopPropagation(); setZoom(z => Math.max(1, z - 0.5)); if (zoom - 0.5 <= 1) setPan({ x: 0, y: 0 }); }}
             >−</button>
             <span className="text-xs text-slate-400 w-10 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
             <button
-              className="w-7 h-7 rounded-lg text-slate-400 hover:text-white transition-colors text-xl leading-none"
+              className="w-7 h-7 rounded-lg text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-xl leading-none"
               onClick={e => { e.stopPropagation(); setZoom(z => Math.min(6, z + 0.5)); }}
             >+</button>
             <div className="w-px h-4 bg-surface-border mx-1" />
             <button
-              className="text-xs text-slate-400 hover:text-white transition-colors px-1"
+              className="text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors px-1"
               onClick={e => { e.stopPropagation(); setZoom(1); setPan({ x: 0, y: 0 }); }}
             >Reset</button>
           </div>
@@ -237,7 +237,7 @@ export default function TradeDetail() {
   );
 }
 
-function Metric({ label, value, valueClass = 'text-white' }) {
+function Metric({ label, value, valueClass = 'dark:text-white text-slate-900' }) {
   return (
     <div className="card">
       <p className="text-[11px] font-semibold text-slate-600 mb-1.5 uppercase tracking-widest">{label}</p>
@@ -251,7 +251,7 @@ function NoteCard({ label, text }) {
   return (
     <div className="card">
       <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest mb-2.5">{label}</p>
-      <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{text}</p>
+      <p className="text-sm dark:text-slate-300 text-slate-700 whitespace-pre-wrap leading-relaxed">{text}</p>
     </div>
   );
 }

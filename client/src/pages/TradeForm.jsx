@@ -187,7 +187,7 @@ export default function TradeForm() {
         <div className="flex items-center gap-3">
           <Link
             to={isEdit ? `/trades/${id}` : '/trades'}
-            className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm transition-colors"
+            className="flex items-center gap-1.5 text-slate-500 dark:hover:text-white hover:text-slate-900 text-sm transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -195,7 +195,7 @@ export default function TradeForm() {
             Back
           </Link>
           <span className="text-surface-border">·</span>
-          <h1 className="text-2xl font-semibold text-white">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
+          <h1 className="text-2xl font-semibold dark:text-white text-slate-900">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
         </div>
         <div className="flex gap-2">
           <Link to={isEdit ? `/trades/${id}` : '/trades'} className="btn-ghost">Cancel</Link>
@@ -224,7 +224,7 @@ export default function TradeForm() {
                     className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
                       fields.session_type === t
                         ? t === 'live' ? 'bg-profit text-black' : 'bg-accent text-black'
-                        : 'text-slate-500 hover:text-white'
+                        : 'text-slate-500 dark:hover:text-white hover:text-slate-900'
                     }`}
                   >
                     {t === 'live' ? 'Live' : 'Backtest'}
@@ -254,7 +254,7 @@ export default function TradeForm() {
                         ? v === 'long'
                           ? 'bg-profit/15 border-profit text-profit'
                           : 'bg-loss/15 border-loss text-loss'
-                        : 'border-surface-border text-slate-500 hover:text-white hover:border-slate-500'
+                        : 'border-surface-border text-slate-500 dark:hover:text-white hover:text-slate-900 hover:border-slate-500'
                     }`}
                   >
                     {l}
@@ -277,8 +277,8 @@ export default function TradeForm() {
                           ? 'bg-[#c6f135]/15 border-[#c6f135] text-[#c6f135]'
                           : v === 'loss'
                             ? 'bg-loss/15 border-loss text-loss'
-                            : 'bg-surface-raised border-slate-500 text-slate-300'
-                        : 'border-surface-border text-slate-500 hover:text-white hover:border-slate-500'
+                            : 'bg-surface-raised border-slate-500 dark:text-slate-300 text-slate-700'
+                        : 'border-surface-border text-slate-500 dark:hover:text-white hover:text-slate-900 hover:border-slate-500'
                     }`}
                   >
                     {l}
@@ -305,7 +305,7 @@ export default function TradeForm() {
             </div>
             {fields.risk_amount !== '' && (
               <p className="text-xs text-slate-500 -mt-1">
-                Risk: <span className="text-slate-300 font-medium">${parseFloat(fields.risk_amount).toFixed(2)}</span>
+                Risk: <span className="dark:text-slate-300 text-slate-700 font-medium">${parseFloat(fields.risk_amount).toFixed(2)}</span>
               </p>
             )}
 
@@ -360,7 +360,7 @@ export default function TradeForm() {
                           className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 ${
                             active
                               ? 'bg-accent text-black border-accent'
-                              : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 hover:text-white'
+                              : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 dark:hover:text-white hover:text-slate-900'
                           }`}
                         >
                           {m.name}

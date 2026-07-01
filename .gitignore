@@ -2,5 +2,6 @@ node_modules/
 server/node_modules/
 client/node_modules/
 client/dist/
-server/data/
+server/data/*.db-shm
+server/data/*.db-wal
 server/uploads/

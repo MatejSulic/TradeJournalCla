@@ -7,7 +7,7 @@ import DatePicker from '../components/DatePicker';
 const PNL_STYLE = {
   win:       'bg-profit/10 text-profit border border-profit/20',
   loss:      'bg-loss/10 text-loss border border-loss/20',
-  breakeven: 'bg-white/5 text-slate-400 border border-white/10',
+  breakeven: 'dark:bg-white/5 bg-black/5 text-slate-500 dark:border-white/10 border-black/10',
 };
 
 export default function TradeList() {
@@ -81,7 +81,7 @@ export default function TradeList() {
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Trades</h1>
+          <h1 className="text-2xl font-semibold dark:text-white text-slate-900">Trades</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             {trades.length === 0 ? 'No trades found' : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, trades.length)} of ${trades.length} trade${trades.length !== 1 ? 's' : ''}`}
           </p>
@@ -112,7 +112,7 @@ export default function TradeList() {
       {/* Restore confirmation */}
       {pendingRestore && (
         <div className="card border-loss/30 bg-loss/5 flex items-center justify-between gap-4">
-          <p className="text-sm text-white">
+          <p className="text-sm dark:text-white text-slate-900">
             File <span className="font-semibold text-loss">{pendingRestore.name}</span> will replace the entire database. This action is irreversible. Continue?
           </p>
           <div className="flex items-center gap-2 shrink-0">
@@ -160,8 +160,8 @@ export default function TradeList() {
                       ? 'bg-profit text-black'
                       : val === 'backtest'
                         ? 'bg-accent text-black'
-                        : 'bg-surface-raised text-white'
-                    : 'text-slate-500 hover:text-white'
+                        : 'bg-surface-raised dark:text-white text-slate-900'
+                    : 'text-slate-500 dark:hover:text-white hover:text-slate-900'
                 }`}
               >
                 {label}
@@ -233,8 +233,8 @@ export default function TradeList() {
                 className="border-b border-surface-border/50 hover:bg-surface-raised/50 cursor-pointer transition-colors group"
                 onClick={() => navigate(`/trades/${t.id}`)}
               >
-                <td className="px-5 py-3.5 text-slate-500 group-hover:text-slate-300 transition-colors">{fmtDate(t.entry_time)}</td>
-                <td className="px-5 py-3.5 text-white font-semibold">{t.asset}</td>
+                <td className="px-5 py-3.5 text-slate-500 dark:group-hover:text-slate-300 group-hover:text-slate-700 transition-colors">{fmtDate(t.entry_time)}</td>
+                <td className="px-5 py-3.5 dark:text-white text-slate-900 font-semibold">{t.asset}</td>
                 <td className="px-5 py-3.5 text-slate-500">
                   {t.session_type === 'backtest' ? 'Backtest' : 'Live'}
                 </td>
@@ -279,14 +279,14 @@ export default function TradeList() {
           <button
             onClick={() => setPage(1)}
             disabled={page === 1}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             «
           </button>
           <button
             onClick={() => setPage(p => p - 1)}
             disabled={page === 1}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             ‹
           </button>
@@ -303,7 +303,7 @@ export default function TradeList() {
                 : <button
                     key={p}
                     onClick={() => setPage(p)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${p === page ? 'bg-accent text-black' : 'text-slate-400 hover:text-white hover:bg-surface-raised'}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${p === page ? 'bg-accent text-black' : 'text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised'}`}
                   >
                     {p}
                   </button>
@@ -311,14 +311,14 @@ export default function TradeList() {
           <button
             onClick={() => setPage(p => p + 1)}
             disabled={page === totalPages}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             ›
           </button>
           <button
             onClick={() => setPage(totalPages)}
             disabled={page === totalPages}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             »
           </button>

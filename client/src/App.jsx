@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import TradeList from './pages/TradeList';
@@ -10,20 +11,22 @@ import Expenses from './pages/Expenses';
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/trades" element={<TradeList />} />
-          <Route path="/trades/new" element={<TradeForm />} />
-          <Route path="/trades/:id" element={<TradeDetail />} />
-          <Route path="/trades/:id/edit" element={<TradeForm />} />
-          <Route path="/series" element={<SeriesPage />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/profile" element={<Profile />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/trades" element={<TradeList />} />
+            <Route path="/trades/new" element={<TradeForm />} />
+            <Route path="/trades/:id" element={<TradeDetail />} />
+            <Route path="/trades/:id/edit" element={<TradeForm />} />
+            <Route path="/series" element={<SeriesPage />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/profile" element={<Profile />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

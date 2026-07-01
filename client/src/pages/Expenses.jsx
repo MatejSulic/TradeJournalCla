@@ -194,7 +194,7 @@ export default function Expenses() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">Expenses</h1>
+        <h1 className="text-xl font-semibold dark:text-white text-slate-900">Expenses</h1>
         <div className="flex gap-2">
           {accounts.length > 0 && (
             <button onClick={handleExport} className="btn-ghost text-sm">Export CSV</button>
@@ -210,7 +210,7 @@ export default function Expenses() {
         <StatCard
           label="Net P&L"
           value={`${netPnl >= 0 ? '+' : ''}$${fmt(netPnl)}`}
-          valueClass={netPnl > 0 ? 'text-profit' : netPnl < 0 ? 'text-loss' : 'text-white'}
+          valueClass={netPnl > 0 ? 'text-profit' : netPnl < 0 ? 'text-loss' : 'dark:text-white text-slate-900'}
         />
         <StatCard label="Active Accounts"  value={String(activeCount)} />
       </div>
@@ -233,7 +233,7 @@ export default function Expenses() {
                 {/* Tile header */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-white text-base leading-tight">{account.firm_name}</p>
+                    <p className="font-semibold dark:text-white text-slate-900 text-base leading-tight">{account.firm_name}</p>
                     <p className="text-sm text-slate-400">${fmt(account.account_size)} account</p>
                   </div>
                   <span className={`shrink-0 text-xs font-medium px-2.5 py-0.5 rounded-full ${s.classes}`}>
@@ -245,7 +245,7 @@ export default function Expenses() {
                 <div className="grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
                   <div>
                     <p className="text-slate-500 text-xs mb-0.5">Purchase Price</p>
-                    <p className="text-white font-medium">${fmt(account.purchase_price)}</p>
+                    <p className="dark:text-white text-slate-900 font-medium">${fmt(account.purchase_price)}</p>
                   </div>
                   <div>
                     <p className="text-slate-500 text-xs mb-0.5">Total Payouts</p>
@@ -253,7 +253,7 @@ export default function Expenses() {
                   </div>
                   <div>
                     <p className="text-slate-500 text-xs mb-0.5">Net P&L</p>
-                    <p className={`font-medium ${net > 0 ? 'text-profit' : net < 0 ? 'text-loss' : 'text-white'}`}>
+                    <p className={`font-medium ${net > 0 ? 'text-profit' : net < 0 ? 'text-loss' : 'dark:text-white text-slate-900'}`}>
                       {net >= 0 ? '+' : ''}${fmt(net)}
                     </p>
                   </div>
@@ -263,7 +263,7 @@ export default function Expenses() {
                 <div className="space-y-1.5 border-t border-surface-border pt-3">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">Purchased</span>
-                    <span className="text-white">{format(parseISO(account.purchased_at), 'MMM d, yyyy')}</span>
+                    <span className="dark:text-white text-slate-700">{format(parseISO(account.purchased_at), 'MMM d, yyyy')}</span>
                   </div>
                   {account.passed_at && (
                     <div className="flex items-center justify-between text-xs">
@@ -282,7 +282,7 @@ export default function Expenses() {
                 {/* Payouts toggle */}
                 <button
                   onClick={() => togglePayouts(account.id)}
-                  className="flex items-center justify-between w-full text-xs text-slate-400 hover:text-white transition-colors pt-2 border-t border-surface-border"
+                  className="flex items-center justify-between w-full text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors pt-2 border-t border-surface-border"
                 >
                   <span>Payouts ({account.payouts.length})</span>
                   <svg
@@ -373,7 +373,7 @@ export default function Expenses() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="card w-full max-w-xs space-y-4">
             <div className="space-y-1">
-              <p className="text-white font-semibold text-sm">{confirm.message}</p>
+              <p className="dark:text-white text-slate-900 font-semibold text-sm">{confirm.message}</p>
               {confirm.subtext && <p className="text-slate-500 text-xs">{confirm.subtext}</p>}
             </div>
             <div className="flex gap-2">
@@ -393,7 +393,7 @@ export default function Expenses() {
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="card w-full max-w-md space-y-4">
-            <h2 className="text-base font-semibold text-white">
+            <h2 className="text-base font-semibold dark:text-white text-slate-900">
               {editingId ? 'Edit Account' : 'New Prop Firm Account'}
             </h2>
 

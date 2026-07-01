@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useGamification, TIER_STYLES } from '../hooks/useGamification';
+import { useTheme } from '../contexts/ThemeContext';
 import XPBar from './XPBar';
 
 const links = [
@@ -13,6 +14,7 @@ const links = [
 
 export default function Layout() {
   const { profile, refetch } = useGamification();
+  const { isDark, toggle } = useTheme();
   const location = useLocation();
 
   // Keep sidebar fresh after every navigation (e.g. returning from TradeForm)
@@ -48,7 +50,7 @@ export default function Layout() {
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 ${
                   isActive
                     ? 'bg-accent/10 text-accent font-medium'
-                    : 'text-slate-500 hover:bg-surface-raised hover:text-white'
+                    : 'text-slate-500 hover:bg-surface-raised dark:hover:text-white hover:text-slate-900'
                 }`
               }
             >
@@ -57,6 +59,18 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        {/* Theme toggle */}
+        <div className="px-4 pb-3">
+          <button
+            onClick={toggle}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-500 hover:bg-surface-raised dark:hover:text-white hover:text-slate-900 transition-all duration-150 border border-surface-border"
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {isDark ? <SunIcon className="w-4 h-4 flex-shrink-0" /> : <MoonIcon className="w-4 h-4 flex-shrink-0" />}
+            {isDark ? 'Light mode' : 'Dark mode'}
+          </button>
+        </div>
 
         {/* XP summary */}
         {profile && s && (
@@ -80,7 +94,7 @@ export default function Layout() {
       </aside>
 
       {/* Main */}
-      <div className="flex-1 bg-[#111111] overflow-hidden">
+      <div className="flex-1 bg-surface overflow-hidden">
         <main className="h-full overflow-y-auto">
           <Outlet />
         </main>
@@ -127,6 +141,23 @@ function PersonIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+    </svg>
+  );
+}
+
+function SunIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <circle cx="12" cy="12" r="5" />
+      <path strokeLinecap="round" d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+    </svg>
+  );
+}
+
+function MoonIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
     </svg>
   );
 }

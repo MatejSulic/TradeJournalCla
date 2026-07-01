@@ -52,9 +52,9 @@ function WheelColumn({ items, value, onChange, fmt = v => String(v).padStart(2, 
   return (
     <div className="relative" style={{ width }}>
       <div className="absolute inset-x-0 top-0 h-16 pointer-events-none z-10"
-        style={{ background: 'linear-gradient(to bottom, #111111 20%, transparent 100%)' }} />
+        style={{ background: 'linear-gradient(to bottom, rgb(var(--color-surface-card)) 20%, transparent 100%)' }} />
       <div className="absolute inset-x-0 bottom-0 h-16 pointer-events-none z-10"
-        style={{ background: 'linear-gradient(to top, #111111 20%, transparent 100%)' }} />
+        style={{ background: 'linear-gradient(to top, rgb(var(--color-surface-card)) 20%, transparent 100%)' }} />
       <div className="absolute inset-x-1 rounded-lg pointer-events-none"
         style={{ top: ITEM_H * 2, height: ITEM_H, background: 'rgba(255,255,255,0.06)' }} />
       <div
@@ -76,7 +76,7 @@ function WheelColumn({ items, value, onChange, fmt = v => String(v).padStart(2, 
             onClick={() => onChange(item)}
             style={{ height: ITEM_H, scrollSnapAlign: 'center', scrollSnapStop: 'always' }}
             className={`flex items-center justify-center text-sm cursor-pointer select-none transition-colors
-              ${item === value ? 'text-white font-semibold' : 'text-slate-500 hover:text-slate-300'}`}
+              ${item === value ? 'dark:text-white text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
           >
             {fmt(item)}
           </div>
@@ -150,7 +150,7 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
     <div
       id="dp-portal"
       className="fixed z-[9999] rounded-xl border border-surface-border shadow-2xl p-3"
-      style={{ background: '#111111', minWidth: 'max-content', top: popupStyle.top, left: popupStyle.left }}
+      style={{ background: 'rgb(var(--color-surface-card))', minWidth: 'max-content', top: popupStyle.top, left: popupStyle.left }}
     >
       <p className="text-[10px] text-slate-600 uppercase tracking-widest text-center mb-1">
         {MONTHS[month - 1]} {pad(day)}, {year}
@@ -167,7 +167,6 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
             value={time}
             onChange={e => handleTime(e.target.value)}
             className="input w-full text-center"
-            style={{ colorScheme: 'dark' }}
           />
         </div>
       )}

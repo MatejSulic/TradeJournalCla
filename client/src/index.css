@@ -4,14 +4,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme variables ──────────────────────────────── */
+:root {
+  /* Light mode */
+  --color-surface: 241 245 249;
+  --color-surface-card: 255 255 255;
+  --color-surface-raised: 226 232 240;
+  --color-surface-border: 203 213 225;
+  --color-profit: 101 163 13;
+  --color-loss: 124 58 237;
+  --color-accent: 101 163 13;
+}
+
+html.dark {
+  /* Dark mode */
+  --color-surface: 10 10 10;
+  --color-surface-card: 17 17 17;
+  --color-surface-raised: 26 26 26;
+  --color-surface-border: 42 42 42;
+  --color-profit: 198 241 53;
+  --color-loss: 124 58 237;
+  --color-accent: 198 241 53;
+}
 
 @layer base {
   body {
-    @apply bg-surface text-white font-sans antialiased;
+    @apply bg-surface text-slate-900 dark:text-white font-sans antialiased;
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2a2a2a transparent;
+    scrollbar-color: rgb(var(--color-surface-border)) transparent;
   }
   *::-webkit-scrollbar {
     width: 5px;
@@ -33,10 +55,10 @@
     @apply btn bg-accent text-black hover:brightness-110 active:scale-95;
   }
   .btn-ghost {
-    @apply btn text-slate-400 hover:bg-surface-raised hover:text-white border border-surface-border;
+    @apply btn text-slate-400 hover:bg-surface-raised dark:hover:text-white hover:text-slate-900 border border-surface-border;
   }
   .btn-secondary {
-    @apply btn text-slate-300 hover:bg-surface-raised hover:text-white border border-surface-border bg-surface-card;
+    @apply btn dark:text-slate-300 text-slate-600 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised border border-surface-border bg-surface-card;
   }
   .btn-danger {
     @apply btn text-loss hover:bg-loss/10 border border-loss/20;
@@ -45,7 +67,7 @@
     @apply bg-surface-card border border-surface-border rounded-2xl p-5;
   }
   .input {
-    @apply w-full bg-surface-raised border border-surface-border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600
+    @apply w-full bg-surface-raised border border-surface-border rounded-xl px-3.5 py-2.5 text-sm dark:text-white text-slate-900 placeholder-slate-400
            focus:outline-none focus:ring-1 focus:ring-accent/60 focus:border-accent/50 transition-all duration-150;
   }
   .label {
@@ -71,13 +93,12 @@
   }
 
   select.input option {
-    background: #1a1a1a;
-    color: white;
+    background: rgb(var(--color-surface-raised));
+    color: inherit;
   }
 
-  input[type="date"].input,
-  input[type="datetime-local"].input {
+  html.dark input[type="date"].input,
+  html.dark input[type="datetime-local"].input {
     color-scheme: dark;
   }
 }
-

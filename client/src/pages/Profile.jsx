@@ -22,7 +22,7 @@ export default function Profile() {
   return (
     <div className="p-6 space-y-6 mx-auto" style={{ maxWidth: '96vw' }}>
       <div>
-        <h1 className="text-2xl font-semibold text-white">Profile</h1>
+        <h1 className="text-2xl font-semibold dark:text-white text-slate-900">Profile</h1>
         <p className="text-sm text-slate-500 mt-0.5">Your progress and achievements</p>
       </div>
 
@@ -34,7 +34,7 @@ export default function Profile() {
         </div>
         {streakDays > 0 && (
           <p className="text-sm text-slate-400">
-            🔥 <span className="font-semibold text-white">{streakDays}</span> day streak
+            🔥 <span className="font-semibold dark:text-white text-slate-900">{streakDays}</span> day streak
           </p>
         )}
       </div>
@@ -75,7 +75,7 @@ function AchievementCard({ achievement: a }) {
     >
       <span className="text-3xl">{a.icon}</span>
       <div>
-        <p className="text-sm font-semibold text-white leading-snug">{a.name}</p>
+        <p className="text-sm font-semibold dark:text-white text-slate-900 leading-snug">{a.name}</p>
         <p className="text-xs text-slate-500 mt-0.5 leading-snug">{a.description}</p>
       </div>
       <div className="mt-auto pt-2 border-t border-surface-border flex items-center justify-between">

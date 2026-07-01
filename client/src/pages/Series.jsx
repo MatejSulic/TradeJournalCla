@@ -72,7 +72,7 @@ export default function SeriesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Series</h1>
+          <h1 className="text-2xl font-semibold dark:text-white text-slate-900">Series</h1>
           <p className="text-sm text-slate-500 mt-0.5">Named groups to organise your trades</p>
         </div>
         {!showForm && (
@@ -139,7 +139,7 @@ export default function SeriesPage() {
           <div key={s.id} className="card flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-3">
-                <h3 className="text-white font-semibold">{s.name}</h3>
+                <h3 className="dark:text-white text-slate-900 font-semibold">{s.name}</h3>
                 <Link
                   to={`/trades?series_id=${s.id}`}
                   className="text-xs text-slate-500 hover:text-accent transition-colors"
