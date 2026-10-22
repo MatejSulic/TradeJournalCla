@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -323,12 +323,11 @@ export default function Dashboard() {
                 {models.map((m, index) => {
                   const active = filters.entry_model_id.includes(m.id);
                   return (
-                    <>
+                    <Fragment key={m.id}>
                       {dropIndex === index && dragId && (
-                        <div key={`drop-${index}`} className="w-0.5 h-6 bg-accent rounded-full self-center" />
+                        <div className="w-0.5 h-6 bg-accent rounded-full self-center" />
                       )}
                       <button
-                        key={m.id}
                         type="button"
                         draggable
                         onDragStart={e => handleDragStart(e, m.id)}
@@ -345,7 +344,7 @@ export default function Dashboard() {
                       >
                         {m.name}
                       </button>
-                    </>
+                    </Fragment>
                   );
                 })}
                 {dropIndex === models.length && dragId && (
