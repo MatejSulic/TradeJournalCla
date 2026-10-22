@@ -24,6 +24,7 @@ Runs fully locally — no auth, single user (`user_id = 'local'`).
 | Animation | framer-motion installed but not used |
 
 **Run dev:** `npm run dev` from root (server on :3001, client on :5173).
+**Docker (daily use):** `docker compose up -d --build` → http://localhost:7420 (container `ascend`, `restart: unless-stopped` → starts on boot). Single container: Express serves the built client from `client/dist` + API. `server/data` and `server/uploads` are bind-mounted, so Docker and dev share the same DB. After code changes, re-run `docker compose up -d --build`. Avoid running `npm run dev` at the same time (two processes on one SQLite; backup restore in one won't reload the other) — `docker compose stop` first.
 **First install:** `npm run install:all`. `Spustit.sh` / `Spustit.bat` = one-click launcher (checks Node, installs deps, opens browser).
 
 ---
