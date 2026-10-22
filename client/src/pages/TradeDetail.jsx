@@ -148,6 +148,7 @@ export default function TradeDetail() {
 
       {/* Notes */}
       <div className="grid sm:grid-cols-2 gap-3">
+        <NoteCard label="Premarket Analysis" text={trade.premarket_analysis} />
         <NoteCard label="Why I Entered" text={trade.why_entered} />
         <NoteCard label="Psychology" text={trade.psychology} />
         <NoteCard label="Improvements" text={trade.improvements} />

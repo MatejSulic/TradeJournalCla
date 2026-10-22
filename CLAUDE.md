@@ -99,7 +99,7 @@ series              (id, name UNIQUE, description, created_at, updated_at)
 entry_models        (id, name UNIQUE, sort_order)
 trades              (id, asset, session_type, series_id, direction, pnl,
                      risk_reward, risk_amount, pnl_dollars, entry_time,
-                     why_entered, psychology, improvements,
+                     premarket_analysis, why_entered, psychology, improvements,
                      risk_management, created_at, updated_at)
 trade_entry_models  (trade_id, entry_model_id)   -- junction table, multiselect
 screenshots         (id, trade_id, type, filename, original_name, created_at)
@@ -140,7 +140,7 @@ xp_log              (id, user_id, trade_id, source, amount, created_at)
 | Risk Reward Ratio | decimal | Optional, `risk_reward` REAL |
 | Risk Amount | decimal | `risk_amount` — auto-calculated in TradeForm from `pnl_dollars` and `risk_reward` |
 | Entry Model | MULTISELECT | `trade_entry_models` junction table |
-| Why did I enter? / Psyche / How to improve? | free text | `why_entered`, `psychology`, `improvements` |
+| Premarket Analysis / Why did I enter? / Psyche / How to improve? | free text | `premarket_analysis`, `why_entered`, `psychology`, `improvements` — each filled note = +20 XP |
 | Risk Management | single tag | Low / Perfect / High |
 | Time of Entry | datetime | `entry_time` TEXT (ISO) |
 | Screenshots | files | LTF (≤10), HTF (≤10), Daily Bias (≤5) — `screenshots.type` |

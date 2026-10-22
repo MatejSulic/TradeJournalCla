@@ -216,7 +216,7 @@ function awardXP(tradeId, userId = 'local') {
     let totalXP = baseXP;
     insertLog.run(userId, tradeId, 'trade_base', baseXP);
 
-    for (const field of ['why_entered', 'psychology', 'improvements']) {
+    for (const field of ['premarket_analysis', 'why_entered', 'psychology', 'improvements']) {
       if (trade[field]?.trim()) {
         insertLog.run(userId, tradeId, `note_${field}`, 20);
         totalXP += 20;
@@ -253,7 +253,7 @@ function recalcNoteXP(tradeId, userId = 'local') {
       INSERT INTO xp_log (user_id, trade_id, source, amount) VALUES (?, ?, ?, ?)
     `);
 
-    for (const field of ['why_entered', 'psychology', 'improvements']) {
+    for (const field of ['premarket_analysis', 'why_entered', 'psychology', 'improvements']) {
       const source = `note_${field}`;
       const isFilled = !!trade[field]?.trim();
       const wasLogged = existingSet.has(source);

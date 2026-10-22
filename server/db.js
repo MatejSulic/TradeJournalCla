@@ -53,6 +53,7 @@ function runSchema() {
       risk_reward      REAL,
       risk_amount      REAL,
       entry_time       TEXT    NOT NULL,
+      premarket_analysis TEXT,
       why_entered      TEXT,
       psychology       TEXT,
       improvements     TEXT,
@@ -144,6 +145,7 @@ function runSchema() {
   try { db.exec(`ALTER TABLE trades ADD COLUMN pnl_dollars REAL`); } catch (_) {}
   try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN passed_at TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN blown_at TEXT`); } catch (_) {}
+  try { db.exec(`ALTER TABLE trades ADD COLUMN premarket_analysis TEXT`); } catch (_) {}
 
   // Migrate legacy "X Backtest" asset names
   db.exec(`

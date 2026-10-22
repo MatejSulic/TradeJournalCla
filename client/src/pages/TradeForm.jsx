@@ -10,7 +10,7 @@ const ASSETS = ['NQ', 'MNQ', 'ES', 'MES'];
 const EMPTY = {
   asset: '', session_type: 'live', series_id: '', direction: 'long', pnl: '',
   risk_reward: '', risk_amount: '', pnl_dollars: '', entry_time: '',
-  why_entered: '', psychology: '', improvements: '', risk_management: '',
+  premarket_analysis: '', why_entered: '', psychology: '', improvements: '', risk_management: '',
 };
 
 export default function TradeForm() {
@@ -57,6 +57,7 @@ export default function TradeForm() {
           risk_amount: t.risk_amount ?? '',
           pnl_dollars: t.pnl_dollars ?? '',
           entry_time: t.entry_time ? t.entry_time.slice(0, 16) : '',
+          premarket_analysis: t.premarket_analysis ?? '',
           why_entered: t.why_entered ?? '',
           psychology: t.psychology ?? '',
           improvements: t.improvements ?? '',
@@ -401,6 +402,10 @@ export default function TradeForm() {
         <div className="flex flex-col min-h-0">
           <div className="card flex-1 flex flex-col gap-4 min-h-0">
             <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest flex-shrink-0">Notes</h2>
+            <Field label="Premarket Analysis" className="flex flex-col flex-1 min-h-0">
+              <textarea className="input resize-none flex-1 min-h-0" value={fields.premarket_analysis}
+                onChange={e => set('premarket_analysis', e.target.value)} placeholder="Bias, key levels, news, plan for the session…" />
+            </Field>
             <Field label="Why I Entered" className="flex flex-col flex-1 min-h-0">
               <textarea className="input resize-none flex-1 min-h-0" value={fields.why_entered}
                 onChange={e => set('why_entered', e.target.value)} placeholder="Describe your entry reasoning…" />
