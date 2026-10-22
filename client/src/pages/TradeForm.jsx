@@ -508,17 +508,27 @@ function UploadZone({ label, files, inputRef, onChange }) {
 
   const remove = (idx) => onChange(prev => prev.filter((_, i) => i !== idx));
 
-  const handlePaste = (e) => {
-    const items = Array.from(e.clipboardData?.items || []);
-    const images = items
-      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
-      .map(item => item.getAsFile())
-      .filter(Boolean);
-    if (images.length > 0) {
-      e.preventDefault();
-      onChange(prev => [...prev, ...images]);
-    }
-  };
+  const zoneRef = useRef();
+  const hoveredRef = useRef(false);
+
+  // Paste is active while hovering the zone (or when it has keyboard focus) — no click needed
+  useEffect(() => {
+    const handlePaste = (e) => {
+      const focused = zoneRef.current?.contains(document.activeElement);
+      if (!hoveredRef.current && !focused) return;
+      const items = Array.from(e.clipboardData?.items || []);
+      const images = items
+        .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+        .map(item => item.getAsFile())
+        .filter(Boolean);
+      if (images.length > 0) {
+        e.preventDefault();
+        onChange(prev => [...prev, ...images]);
+      }
+    };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [onChange]);
 
   return (
     <div>
@@ -530,7 +540,10 @@ function UploadZone({ label, files, inputRef, onChange }) {
       </div>
       <div
         className="border border-dashed border-surface-border rounded-xl min-h-[110px] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-accent/40 hover:bg-surface-raised/30 focus:outline-none focus:border-accent/60 focus:bg-surface-raised/30 transition-all duration-150"
+        ref={zoneRef}
         tabIndex={0}
+        onMouseEnter={() => { hoveredRef.current = true; }}
+        onMouseLeave={() => { hoveredRef.current = false; }}
         onClick={() => inputRef.current?.click()}
         onDragEnter={e => e.preventDefault()}
         onDragOver={e => e.preventDefault()}
@@ -539,7 +552,6 @@ function UploadZone({ label, files, inputRef, onChange }) {
           const dropped = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
           if (dropped.length) onChange(prev => [...prev, ...dropped]);
         }}
-        onPaste={handlePaste}
       >
         <svg className="w-7 h-7 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
