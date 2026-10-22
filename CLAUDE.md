@@ -45,7 +45,7 @@ TradeJournalCla/
 │   │   │   ├── useGamification.js # Fetches profile; TIER_STYLES per level tier
 │   │   │   └── useThemeColors.js  # Chart colors for current theme (tooltip, grid, colorMain, colorNeg…)
 │   │   ├── components/
-│   │   │   ├── Layout.jsx        # Sidebar: logo, nav, theme toggle, XP summary (level, streak, XPBar)
+│   │   │   ├── Layout.jsx        # Collapsible sidebar (icon rail → hover slide-out overlay, pin persisted in localStorage 'sidebarPinned'), nav, theme toggle, XP summary
 │   │   │   ├── TradeCalendar.jsx # Month calendar of trades + weekly summary column
 │   │   │   ├── StatCard.jsx      # Reusable stat display card
 │   │   │   ├── ConfirmDialog.jsx # Modal confirm (use instead of window.confirm)
@@ -185,6 +185,14 @@ itemStyle={{ color: isDark ? '#fff' : '#1e293b' }}   // required, otherwise Rech
 (Existing code detects dark via `colors.tick === '#4b5563'`.)
 
 ---
+
+## TradeForm layout
+
+- Page fits viewport (no page scroll): header + 3-column grid `minmax(300px,1fr) | minmax(0,1.7fr) | minmax(260px,1fr)` with `gridTemplateRows: minmax(0,1fr)`; columns 1 and 3 scroll internally.
+- **Col 1:** Trade Info (Live/Backtest toggle, Asset / Direction / Result / Risk Management as `Segmented` button rows, Entry Time, R:R + PnL $ → computed risk, Series select) + Entry Models (drag-reorder, inline add/delete).
+- **Col 2:** Notes in a 2×2 grid — Premarket Analysis | Why I Entered / Psychology | Improvements.
+- **Col 3:** Screenshots — existing shots (mark for delete) + 3 `UploadZone`s; paste works on **hover** (document-level paste listener), click, drag & drop.
+- Header shows live summary chips (asset, direction, result, R) and validation error; **Ctrl/Cmd+Enter** submits.
 
 ## Expenses (prop firm accounts)
 

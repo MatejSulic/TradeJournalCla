@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { Fragment, useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, reorderEntryModels, createTrade, updateTrade, getSeries } from '../api';
 import XPToast from '../components/XPToast';
@@ -181,11 +181,30 @@ export default function TradeForm() {
     }
   };
 
+  // Ctrl/Cmd + Enter saves from anywhere in the form
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  const summary = [
+    fields.asset,
+    fields.direction === 'long' ? '↑ Long' : '↓ Short',
+    fields.pnl && { win: 'Win', loss: 'Loss', breakeven: 'BE' }[fields.pnl],
+    fields.risk_reward && `${fields.risk_reward}R`,
+  ].filter(Boolean);
+
   return (
     <div className="p-4 h-full flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-4 flex-shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             to={isEdit ? `/trades/${id}` : '/trades'}
             className="flex items-center gap-1.5 text-slate-500 dark:hover:text-white hover:text-slate-900 text-sm transition-colors"
@@ -196,24 +215,39 @@ export default function TradeForm() {
             Back
           </Link>
           <span className="text-surface-border">·</span>
-          <h1 className="text-2xl font-semibold dark:text-white text-slate-900">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
+          <h1 className="text-2xl font-semibold dark:text-white text-slate-900 whitespace-nowrap">{isEdit ? 'Edit Trade' : 'New Trade'}</h1>
+          {/* Live summary of what's been filled */}
+          <div className="hidden md:flex items-center gap-1.5 ml-2 min-w-0">
+            {summary.map((chip, i) => (
+              <span key={i} className={`text-xs px-2 py-0.5 rounded-md border whitespace-nowrap ${
+                chip === 'Win' ? 'border-profit/30 text-profit bg-profit/10'
+                  : chip === 'Loss' ? 'border-loss/30 text-loss bg-loss/10'
+                  : 'border-surface-border text-slate-500'
+              }`}>{chip}</span>
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {error && <p className="text-loss text-sm mr-2">{error}</p>}
           <Link to={isEdit ? `/trades/${id}` : '/trades'} className="btn-ghost">Cancel</Link>
           <button type="button" disabled={saving} className="btn-primary" onClick={() => formRef.current?.requestSubmit()}>
             {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Trade'}
+            {!saving && <kbd className="text-[10px] font-semibold opacity-60 ml-1">Ctrl ↵</kbd>}
           </button>
         </div>
       </div>
 
-      {error && <p className="text-loss text-sm">{error}</p>}
-
-      <form ref={formRef} onSubmit={handleSubmit} className="flex-1 min-h-0 grid gap-4 items-stretch" style={{ gridTemplateColumns: '1fr 1.5fr 1fr' }}>
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className="flex-1 min-h-0 grid gap-4"
+        style={{ gridTemplateColumns: 'minmax(300px, 1fr) minmax(0, 1.7fr) minmax(260px, 1fr)', gridTemplateRows: 'minmax(0, 1fr)' }}
+      >
         {/* COLUMN 1 — Trade Info + Entry Models */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 min-h-0 overflow-y-auto pr-0.5">
 
           {/* Trade Info */}
-          <div className="card space-y-4">
+          <div className="card space-y-3.5 flex-shrink-0">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Trade Info</h2>
               <div className="flex rounded-lg border border-surface-border overflow-hidden">
@@ -224,7 +258,7 @@ export default function TradeForm() {
                     onClick={() => set('session_type', t)}
                     className={`px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
                       fields.session_type === t
-                        ? t === 'live' ? 'bg-profit text-black' : 'bg-accent text-black'
+                        ? 'bg-accent text-black'
                         : 'text-slate-500 dark:hover:text-white hover:text-slate-900'
                     }`}
                   >
@@ -234,66 +268,39 @@ export default function TradeForm() {
               </div>
             </div>
 
-            {/* Asset */}
             <Field label="Asset *">
-              <select className="input" value={fields.asset} onChange={e => set('asset', e.target.value)}>
-                <option value="">— Select —</option>
-                {ASSETS.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              <Segmented
+                value={fields.asset}
+                onChange={v => set('asset', v)}
+                options={ASSETS.map(a => [a, a])}
+              />
             </Field>
 
-            {/* Direction */}
-            <Field label="Direction">
-              <div className="flex gap-2">
-                {[['long', '↑ Long'], ['short', '↓ Short']].map(([v, l]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => set('direction', v)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all duration-150 ${
-                      fields.direction === v
-                        ? v === 'long'
-                          ? 'bg-profit/15 border-profit text-profit'
-                          : 'bg-loss/15 border-loss text-loss'
-                        : 'border-surface-border text-slate-500 dark:hover:text-white hover:text-slate-900 hover:border-slate-500'
-                    }`}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Direction">
+                <Segmented
+                  value={fields.direction}
+                  onChange={v => set('direction', v)}
+                  options={[['long', '↑ Long'], ['short', '↓ Short']]}
+                  activeCls={v => v === 'long' ? 'bg-profit/15 border-profit text-profit' : 'bg-loss/15 border-loss text-loss'}
+                />
+              </Field>
+              <Field label="Result *">
+                <Segmented
+                  value={fields.pnl}
+                  onChange={v => set('pnl', v)}
+                  options={[['win', 'Win'], ['loss', 'Loss'], ['breakeven', 'BE']]}
+                  activeCls={v => v === 'win' ? 'bg-profit/15 border-profit text-profit'
+                    : v === 'loss' ? 'bg-loss/15 border-loss text-loss'
+                    : 'bg-surface-raised border-slate-500 dark:text-slate-300 text-slate-700'}
+                />
+              </Field>
+            </div>
 
-            {/* Result */}
-            <Field label="Result *">
-              <div className="flex gap-1.5">
-                {[['win', 'Win'], ['loss', 'Loss'], ['breakeven', 'BE']].map(([v, l]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => set('pnl', v)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
-                      fields.pnl === v
-                        ? v === 'win'
-                          ? 'bg-[#c6f135]/15 border-[#c6f135] text-[#c6f135]'
-                          : v === 'loss'
-                            ? 'bg-loss/15 border-loss text-loss'
-                            : 'bg-surface-raised border-slate-500 dark:text-slate-300 text-slate-700'
-                        : 'border-surface-border text-slate-500 dark:hover:text-white hover:text-slate-900 hover:border-slate-500'
-                    }`}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            {/* Entry Time */}
             <Field label="Entry Time *">
               <DatePicker withTime value={fields.entry_time} onChange={v => set('entry_time', v)} placeholder="Select date & time" />
             </Field>
 
-            {/* R:R · PnL $ */}
             <div className="grid grid-cols-2 gap-3">
               <Field label="R:R">
                 <input type="number" step="0.01" min="0" className="input" placeholder="2.50"
@@ -310,17 +317,15 @@ export default function TradeForm() {
               </p>
             )}
 
-            {/* Risk Management */}
             <Field label="Risk Management">
-              <select className="input" value={fields.risk_management} onChange={e => set('risk_management', e.target.value)}>
-                <option value="">— Select —</option>
-                <option value="low">Low</option>
-                <option value="perfect">Perfect</option>
-                <option value="high">High</option>
-              </select>
+              <Segmented
+                value={fields.risk_management}
+                onChange={v => set('risk_management', fields.risk_management === v ? '' : v)}
+                options={[['low', 'Low'], ['perfect', 'Perfect'], ['high', 'High']]}
+                activeCls={v => v === 'perfect' ? 'bg-profit/15 border-profit text-profit' : 'bg-loss/15 border-loss text-loss'}
+              />
             </Field>
 
-            {/* Series */}
             <Field label="Series">
               <select className="input" value={fields.series_id} onChange={e => set('series_id', e.target.value)}>
                 <option value="">— None —</option>
@@ -330,11 +335,16 @@ export default function TradeForm() {
           </div>
 
           {/* Entry Models */}
-          <div className="card space-y-3 flex-1">
-            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Setup / Entry Models</h2>
+          <div className="card space-y-3 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Setup / Entry Models</h2>
+              {selectedModelIds.length > 0 && (
+                <span className="text-xs text-accent">{selectedModelIds.length} selected</span>
+              )}
+            </div>
             {models.length > 0 && (
               <div
-                className="flex flex-wrap gap-2 items-center"
+                className="flex flex-wrap gap-1.5 items-center"
                 onDrop={handleDrop}
                 onDragOver={e => e.preventDefault()}
                 onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndex(null); }}
@@ -343,12 +353,11 @@ export default function TradeForm() {
                   const active = selectedModelIds.includes(m.id);
                   const isDragging = m.id === dragId;
                   return (
-                    <>
+                    <Fragment key={m.id}>
                       {dropIndex === index && dragId && (
-                        <div key={`drop-${index}`} className="w-0.5 h-7 bg-accent rounded-full self-center" />
+                        <div className="w-0.5 h-7 bg-accent rounded-full self-center" />
                       )}
                       <div
-                        key={m.id}
                         draggable
                         onDragStart={e => handleDragStart(e, m.id)}
                         onDragOver={e => handleDragOver(e, index)}
@@ -358,7 +367,7 @@ export default function TradeForm() {
                         <button
                           type="button"
                           onClick={() => toggleModel(m.id)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all duration-150 ${
                             active
                               ? 'bg-accent text-black border-accent'
                               : 'bg-transparent text-slate-500 border-surface-border hover:border-accent/40 dark:hover:text-white hover:text-slate-900'
@@ -375,7 +384,7 @@ export default function TradeForm() {
                           ✕
                         </button>
                       </div>
-                    </>
+                    </Fragment>
                   );
                 })}
                 {dropIndex === models.length && dragId && (
@@ -386,7 +395,7 @@ export default function TradeForm() {
             <div className="flex gap-2">
               <input
                 className="input flex-1 text-sm"
-                placeholder="New setup name (e.g. FVG, OB, BOS)…"
+                placeholder="New setup (e.g. FVG, OB, BOS)…"
                 value={newModelName}
                 onChange={e => setNewModelName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddModel(); } }}
@@ -398,86 +407,83 @@ export default function TradeForm() {
           </div>
         </div>
 
-        {/* COLUMN 2 — Notes (wider) */}
-        <div className="flex flex-col min-h-0">
-          <div className="card flex-1 flex flex-col gap-4 min-h-0">
-            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest flex-shrink-0">Notes</h2>
-            <Field label="Premarket Analysis" className="flex flex-col flex-1 min-h-0">
-              <textarea className="input resize-none flex-1 min-h-0" value={fields.premarket_analysis}
-                onChange={e => set('premarket_analysis', e.target.value)} placeholder="Bias, key levels, news, plan for the session…" />
-            </Field>
-            <Field label="Why I Entered" className="flex flex-col flex-1 min-h-0">
-              <textarea className="input resize-none flex-1 min-h-0" value={fields.why_entered}
-                onChange={e => set('why_entered', e.target.value)} placeholder="Describe your entry reasoning…" />
-            </Field>
-            <Field label="Psychology" className="flex flex-col flex-1 min-h-0">
-              <textarea className="input resize-none flex-1 min-h-0" value={fields.psychology}
-                onChange={e => set('psychology', e.target.value)} placeholder="How did you feel? Were you disciplined?" />
-            </Field>
-            <Field label="Improvements" className="flex flex-col flex-1 min-h-0">
-              <textarea className="input resize-none flex-1 min-h-0" value={fields.improvements}
-                onChange={e => set('improvements', e.target.value)} placeholder="What could you have done better?" />
-            </Field>
+        {/* COLUMN 2 — Notes, 2×2: before & during the trade on top, reflection below */}
+        <div className="card flex flex-col gap-3 min-h-0">
+          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest flex-shrink-0">Notes</h2>
+          <div className="flex-1 min-h-0 grid grid-cols-2 gap-4" style={{ gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+            {[
+              ['premarket_analysis', 'Premarket Analysis', 'Bias, key levels, news, plan for the session…'],
+              ['why_entered', 'Why I Entered', 'Describe your entry reasoning…'],
+              ['psychology', 'Psychology', 'How did you feel? Were you disciplined?'],
+              ['improvements', 'Improvements', 'What could you have done better?'],
+            ].map(([key, label, placeholder]) => (
+              <Field key={key} label={label} className="flex flex-col min-h-0">
+                <textarea
+                  className="input resize-none flex-1 min-h-0 leading-relaxed"
+                  value={fields[key]}
+                  onChange={e => set(key, e.target.value)}
+                  placeholder={placeholder}
+                />
+              </Field>
+            ))}
           </div>
         </div>
 
         {/* COLUMN 3 — Screenshots */}
-        <div className="flex flex-col">
-          <div className="card flex-1 flex flex-col gap-4 overflow-y-auto">
-            <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest flex-shrink-0">Screenshots</h2>
+        <div className="card flex flex-col gap-4 min-h-0 overflow-y-auto">
+          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest flex-shrink-0">Screenshots</h2>
 
-            {existingScreenshots.length > 0 && (
-              <div className="space-y-4">
-                {['daily_bias', 'ltf', 'htf'].map(type => {
-                  const shots = existingScreenshots.filter(s => s.type === type);
-                  if (!shots.length) return null;
-                  const label = type === 'daily_bias' ? 'Daily Bias' : type.toUpperCase();
-                  return (
-                    <div key={type}>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs text-slate-500 uppercase tracking-wide">{label}</p>
-                        <span className="text-xs text-slate-600">{shots.length} saved</span>
-                      </div>
-                      <div className="overflow-x-auto snap-x snap-mandatory pb-1" style={{ scrollbarWidth: 'thin' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${shots.length}, 100%)`, gap: '8px' }}>
-                          {shots.map(s => {
-                            const marked = deleteIds.includes(s.id);
-                            return (
-                              <div key={s.id} className="relative group snap-start">
-                                <img
-                                  src={`/uploads/${s.filename}`}
-                                  alt={s.original_name}
-                                  className={`w-full h-auto rounded-lg border object-cover transition duration-150 ${
-                                    marked ? 'opacity-30 border-loss' : 'border-surface-border'
+          {existingScreenshots.length > 0 && (
+            <div className="space-y-4">
+              {['daily_bias', 'ltf', 'htf'].map(type => {
+                const shots = existingScreenshots.filter(s => s.type === type);
+                if (!shots.length) return null;
+                const label = type === 'daily_bias' ? 'Daily Bias' : type.toUpperCase();
+                return (
+                  <div key={type}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">{label}</p>
+                      <span className="text-xs text-slate-600">{shots.length} saved</span>
+                    </div>
+                    <div className="overflow-x-auto snap-x snap-mandatory pb-1" style={{ scrollbarWidth: 'thin' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${shots.length}, 100%)`, gap: '8px' }}>
+                        {shots.map(s => {
+                          const marked = deleteIds.includes(s.id);
+                          return (
+                            <div key={s.id} className="relative group snap-start">
+                              <img
+                                src={`/uploads/${s.filename}`}
+                                alt={s.original_name}
+                                className={`w-full h-auto rounded-lg border object-cover transition duration-150 ${
+                                  marked ? 'opacity-30 border-loss' : 'border-surface-border'
+                                }`}
+                              />
+                              <div className="absolute inset-0 rounded-lg bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleDelete(s.id)}
+                                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+                                    marked ? 'bg-surface-raised text-slate-300' : 'bg-loss text-white'
                                   }`}
-                                />
-                                <div className="absolute inset-0 rounded-lg bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex flex-col items-center justify-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleDelete(s.id)}
-                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-                                      marked ? 'bg-surface-raised text-slate-300' : 'bg-loss text-white'
-                                    }`}
-                                  >
-                                    {marked ? 'Undo' : 'Remove'}
-                                  </button>
-                                  <p className="text-[10px] text-slate-400 truncate max-w-full px-2 text-center">{s.original_name}</p>
-                                </div>
+                                >
+                                  {marked ? 'Undo' : 'Remove'}
+                                </button>
+                                <p className="text-[10px] text-slate-400 truncate max-w-full px-2 text-center">{s.original_name}</p>
                               </div>
-                            );
-                          })}
-                        </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-            <UploadZone label="Daily Bias" files={dailyBiasFiles} inputRef={dailyBiasRef} onChange={setDailyBiasFiles} />
-            <UploadZone label="LTF" files={ltfFiles} inputRef={ltfRef} onChange={setLtfFiles} />
-            <UploadZone label="HTF" files={htfFiles} inputRef={htfRef} onChange={setHtfFiles} />
-          </div>
+          <UploadZone label="Daily Bias" files={dailyBiasFiles} inputRef={dailyBiasRef} onChange={setDailyBiasFiles} />
+          <UploadZone label="LTF" files={ltfFiles} inputRef={ltfRef} onChange={setLtfFiles} />
+          <UploadZone label="HTF" files={htfFiles} inputRef={htfRef} onChange={setHtfFiles} />
         </div>
       </form>
 
@@ -492,6 +498,28 @@ export default function TradeForm() {
           onCancel={() => setConfirmRemoveModel(null)}
         />
       )}
+    </div>
+  );
+}
+
+// Row of toggle buttons — faster than a <select> for a handful of options
+function Segmented({ value, onChange, options, activeCls }) {
+  return (
+    <div className="flex gap-1.5">
+      {options.map(([v, l]) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+            value === v
+              ? (activeCls ? activeCls(v) : 'bg-accent/15 border-accent text-accent')
+              : 'border-surface-border text-slate-500 dark:hover:text-white hover:text-slate-900 hover:border-slate-500'
+          }`}
+        >
+          {l}
+        </button>
+      ))}
     </div>
   );
 }
@@ -544,7 +572,7 @@ function UploadZone({ label, files, inputRef, onChange }) {
         )}
       </div>
       <div
-        className="border border-dashed border-surface-border rounded-xl min-h-[110px] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-accent/40 hover:bg-surface-raised/30 focus:outline-none focus:border-accent/60 focus:bg-surface-raised/30 transition-all duration-150"
+        className="border border-dashed border-surface-border rounded-xl min-h-[88px] flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-accent/40 hover:bg-surface-raised/30 focus:outline-none focus:border-accent/60 focus:bg-surface-raised/30 transition-all duration-150"
         ref={zoneRef}
         tabIndex={0}
         onMouseEnter={() => { hoveredRef.current = true; }}
