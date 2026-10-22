@@ -8,12 +8,12 @@ import {
   createPayout,
   deletePayout,
 } from '../api';
-import StatCard from '../components/StatCard';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const STATUS_STYLES = {
-  eval:   { label: 'Eval',   classes: 'bg-yellow-500/15 text-yellow-400' },
-  funded: { label: 'Funded', classes: 'bg-lime-500/15 text-[#c6f135]' },
-  blown:  { label: 'Blown',  classes: 'bg-orange-500/15 text-orange-400' },
+  eval:   { label: 'Eval',   classes: 'bg-neutral/15 text-neutral', dot: 'bg-neutral' },
+  funded: { label: 'Funded', classes: 'bg-accent-soft text-accent', dot: 'bg-accent' },
+  blown:  { label: 'Blown',  classes: 'bg-loss/10 text-loss',       dot: 'bg-loss' },
 };
 
 const EMPTY_FORM = {
@@ -190,218 +190,271 @@ export default function Expenses() {
     return <div className="p-8 text-slate-500 text-sm">Loading...</div>;
   }
 
+  const money = n => `${n > 0 ? '+' : n < 0 ? '−' : ''}$${fmt(Math.abs(n))}`;
+  const moneyClass = n => n > 0 ? 'text-accent' : n < 0 ? 'text-loss' : 'text-slate-500 dark:text-slate-400';
+  const fmtDate = str => format(parseISO(str), 'MMM d, yyyy');
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold dark:text-white text-slate-900">Expenses</h1>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">Expenses</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Prop firm accounts, costs and payouts</p>
+        </div>
         <div className="flex gap-2">
           {accounts.length > 0 && (
-            <button onClick={handleExport} className="btn-ghost text-sm">Export CSV</button>
+            <button onClick={handleExport} className="btn-secondary">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V4" />
+              </svg>
+              Export CSV
+            </button>
           )}
-          <button onClick={openNew} className="btn-primary text-sm">+ New Account</button>
+          <button onClick={openNew} className="btn-primary">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Account
+          </button>
         </div>
       </div>
 
-      {/* Stat cards */}
+      {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Spent"      value={`$${fmt(totalSpent)}`} />
-        <StatCard label="Total Payouts"    value={`$${fmt(totalPayouts)}`} />
-        <StatCard
-          label="Net P&L"
-          value={`${netPnl >= 0 ? '+' : ''}$${fmt(netPnl)}`}
-          valueClass={netPnl > 0 ? 'text-profit' : netPnl < 0 ? 'text-loss' : 'dark:text-white text-slate-900'}
-        />
-        <StatCard label="Active Accounts"  value={String(activeCount)} />
+        <div className="card-hero flex flex-col justify-between gap-6">
+          <span className="text-xs font-medium text-white/80">Net P&amp;L</span>
+          <div>
+            <p className="text-4xl font-semibold tabular-nums tracking-tight">{money(netPnl)}</p>
+            <p className="text-xs text-white/75 mt-1">payouts − spent</p>
+          </div>
+        </div>
+        <div className="card flex flex-col justify-between gap-6">
+          <span className="stat-label">Total spent</span>
+          <div>
+            <p className="stat-value">${fmt(totalSpent)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{accounts.length} account{accounts.length !== 1 ? 's' : ''} purchased</p>
+          </div>
+        </div>
+        <div className="card flex flex-col justify-between gap-6">
+          <span className="stat-label">Total payouts</span>
+          <div>
+            <p className={`stat-value ${totalPayouts > 0 ? '!text-accent' : ''}`}>${fmt(totalPayouts)}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {accounts.reduce((s, a) => s + a.payouts.length, 0)} payout{accounts.reduce((s, a) => s + a.payouts.length, 0) !== 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+        <div className="card flex flex-col justify-between gap-6">
+          <span className="stat-label">Active accounts</span>
+          <div>
+            <p className="stat-value">{activeCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">eval + funded</p>
+          </div>
+        </div>
       </div>
 
-      {/* Empty state */}
+      {/* Accounts */}
       {accounts.length === 0 ? (
-        <div className="card text-slate-500 text-sm text-center py-12">
-          No prop firm accounts yet. Click "+ New Account" to add one.
+        <div className="card flex flex-col items-center justify-center py-16 gap-3">
+          <p className="text-slate-500 dark:text-slate-400 text-sm">No prop firm accounts yet.</p>
+          <button onClick={openNew} className="text-sm font-medium text-accent hover:underline">Add your first account →</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {accounts.map(account => {
-            const net       = account.total_payouts - account.purchase_price;
-            const s         = STATUS_STYLES[account.status];
-            const isExpanded = expandedPayouts.has(account.id);
-            const pf        = payoutForms[account.id] || EMPTY_PAYOUT;
+        <div className="card !p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-raised/50">
+                <tr className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <th className="pl-6 pr-4 py-3.5 text-left font-medium">Account</th>
+                  <th className="px-4 py-3.5 text-left font-medium">Status</th>
+                  <th className="px-4 py-3.5 text-left font-medium">Purchased</th>
+                  <th className="px-4 py-3.5 text-left font-medium">Passed / Blown</th>
+                  <th className="px-4 py-3.5 text-right font-medium">Price</th>
+                  <th className="px-4 py-3.5 text-right font-medium">Payouts</th>
+                  <th className="px-4 py-3.5 text-right font-medium">Net P&amp;L</th>
+                  <th className="pl-4 pr-6 py-3.5"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border">
+                {accounts.map(account => {
+                  const net        = account.total_payouts - account.purchase_price;
+                  const s          = STATUS_STYLES[account.status];
+                  const isExpanded = expandedPayouts.has(account.id);
+                  const pf         = payoutForms[account.id] || EMPTY_PAYOUT;
 
-            return (
-              <div key={account.id} className="card flex flex-col gap-4">
-                {/* Tile header */}
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold dark:text-white text-slate-900 text-base leading-tight">{account.firm_name}</p>
-                    <p className="text-sm text-slate-400">${fmt(account.account_size)} account</p>
-                  </div>
-                  <span className={`shrink-0 text-xs font-medium px-2.5 py-0.5 rounded-full ${s.classes}`}>
-                    {s.label}
-                  </span>
-                </div>
-
-                {/* Financial stats */}
-                <div className="grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
-                  <div>
-                    <p className="text-slate-500 text-xs mb-0.5">Purchase Price</p>
-                    <p className="dark:text-white text-slate-900 font-medium">${fmt(account.purchase_price)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 text-xs mb-0.5">Total Payouts</p>
-                    <p className="font-medium text-[#c6f135]">${fmt(account.total_payouts)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 text-xs mb-0.5">Net P&L</p>
-                    <p className={`font-medium ${net > 0 ? 'text-profit' : net < 0 ? 'text-loss' : 'dark:text-white text-slate-900'}`}>
-                      {net >= 0 ? '+' : ''}${fmt(net)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Dates */}
-                <div className="space-y-1.5 border-t border-surface-border pt-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Purchased</span>
-                    <span className="dark:text-white text-slate-700">{format(parseISO(account.purchased_at), 'MMM d, yyyy')}</span>
-                  </div>
-                  {account.passed_at && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Passed</span>
-                      <span className="text-[#c6f135]">{format(parseISO(account.passed_at), 'MMM d, yyyy')}</span>
-                    </div>
-                  )}
-                  {account.blown_at && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Blown</span>
-                      <span className="text-orange-400">{format(parseISO(account.blown_at), 'MMM d, yyyy')}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Payouts toggle */}
-                <button
-                  onClick={() => togglePayouts(account.id)}
-                  className="flex items-center justify-between w-full text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors pt-2 border-t border-surface-border"
-                >
-                  <span>Payouts ({account.payouts.length})</span>
-                  <svg
-                    className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {/* Payouts expanded section */}
-                {isExpanded && (
-                  <div className="space-y-3 -mt-1">
-                    {account.payouts.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {account.payouts.map(p => (
-                          <div key={p.id} className="flex items-center justify-between bg-surface-raised rounded-lg px-3 py-2">
-                            <div>
-                              <p className="text-[#c6f135] text-sm font-medium">+${fmt(p.amount)}</p>
-                              <p className="text-slate-500 text-xs">
-                                {format(parseISO(p.payout_date), 'MMM d, yyyy')}
-                                {p.notes && <span className="text-slate-600"> · {p.notes}</span>}
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => handleDeletePayout(account.id, p.id, p.amount)}
-                              className="text-slate-600 hover:text-orange-400 transition-colors ml-3"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                  return [
+                    <tr key={account.id} className={`group transition-colors hover:bg-surface-raised/60 ${isExpanded ? 'bg-surface-raised/40' : ''}`}>
+                      <td className="pl-6 pr-4 py-4 max-w-[280px]">
+                        <p className="font-semibold text-slate-900 dark:text-white leading-tight">{account.firm_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate" title={account.notes || undefined}>
+                          ${fmt(account.account_size)} account{account.notes ? ` · ${account.notes}` : ''}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${s.classes}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                          {s.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-slate-700 dark:text-slate-300 tabular-nums">{fmtDate(account.purchased_at)}</td>
+                      <td className="px-4 py-4 whitespace-nowrap tabular-nums">
+                        {account.passed_at || account.blown_at ? (
+                          <div className="space-y-0.5 text-xs">
+                            {account.passed_at && (
+                              <p><span className="text-slate-500 dark:text-slate-400">Passed </span><span className="text-accent font-medium">{fmtDate(account.passed_at)}</span></p>
+                            )}
+                            {account.blown_at && (
+                              <p><span className="text-slate-500 dark:text-slate-400">Blown </span><span className="text-loss font-medium">{fmtDate(account.blown_at)}</span></p>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-slate-600 text-xs text-center py-1">No payouts yet</p>
-                    )}
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-right tabular-nums text-slate-700 dark:text-slate-300">${fmt(account.purchase_price)}</td>
+                      <td className="px-4 py-4 text-right">
+                        <button
+                          onClick={() => togglePayouts(account.id)}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 -mr-2 tabular-nums transition-colors hover:bg-surface-raised
+                            ${account.total_payouts > 0 ? 'text-accent font-medium' : 'text-slate-500 dark:text-slate-400'}`}
+                          title={isExpanded ? 'Hide payouts' : 'Show payouts'}
+                        >
+                          ${fmt(account.total_payouts)}
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">({account.payouts.length})</span>
+                          <svg
+                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      </td>
+                      <td className={`px-4 py-4 text-right font-semibold tabular-nums ${moneyClass(net)}`}>{money(net)}</td>
+                      <td className="pl-4 pr-6 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openEdit(account)} className="btn-ghost !px-3 !py-1.5 text-xs">Edit</button>
+                          <button onClick={() => handleDelete(account.id)} className="btn-ghost !px-3 !py-1.5 text-xs hover:!text-loss hover:!bg-loss/10">Delete</button>
+                        </div>
+                      </td>
+                    </tr>,
 
-                    {/* Add payout form */}
-                    <div className="space-y-2 pt-1 border-t border-surface-border">
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="number"
-                          placeholder="Amount ($)"
-                          className="input text-sm"
-                          value={pf.amount}
-                          onChange={e => setPayoutField(account.id, 'amount', e.target.value)}
-                        />
-                        <input
-                          type="date"
-                          className="input text-sm"
-                          value={pf.payout_date}
-                          onChange={e => setPayoutField(account.id, 'payout_date', e.target.value)}
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Notes (optional)"
-                        className="input text-sm w-full"
-                        value={pf.notes}
-                        onChange={e => setPayoutField(account.id, 'notes', e.target.value)}
-                      />
-                      <button
-                        onClick={() => handleAddPayout(account.id)}
-                        disabled={addingPayout.has(account.id) || !pf.amount}
-                        className="btn-primary w-full text-sm py-1.5 disabled:opacity-40"
-                      >
-                        {addingPayout.has(account.id) ? 'Adding...' : '+ Add Payout'}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                    isExpanded && (
+                      <tr key={`${account.id}-payouts`} className="bg-surface-raised/40">
+                        <td colSpan={8} className="px-6 pb-5 pt-1">
+                          <div className="grid gap-4 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+                            {/* Payout list */}
+                            <div className="rounded-2xl bg-surface-card p-4">
+                              <p className="card-title mb-3">Payouts</p>
+                              {account.payouts.length > 0 ? (
+                                <ul className="divide-y divide-surface-border">
+                                  {account.payouts.map(p => (
+                                    <li key={p.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                                      <div className="min-w-0">
+                                        <p className="text-accent text-sm font-semibold tabular-nums">+${fmt(p.amount)}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                          {fmtDate(p.payout_date)}
+                                          {p.notes && <span> · {p.notes}</span>}
+                                        </p>
+                                      </div>
+                                      <button
+                                        onClick={() => handleDeletePayout(account.id, p.id, p.amount)}
+                                        className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-loss hover:bg-loss/10 transition-colors"
+                                        title="Delete payout"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-slate-500 dark:text-slate-400 py-2">No payouts yet.</p>
+                              )}
+                            </div>
 
-                {/* Footer actions */}
-                <div className="flex gap-2 pt-1 border-t border-surface-border">
-                  <button onClick={() => openEdit(account)} className="btn-ghost text-xs flex-1">Edit</button>
-                  <button onClick={() => handleDelete(account.id)} className="btn-ghost text-xs flex-1 text-orange-400/70 hover:bg-orange-500/10 hover:text-orange-400">Delete</button>
-                </div>
-              </div>
-            );
-          })}
+                            {/* Add payout form */}
+                            <div className="rounded-2xl bg-surface-card p-4 space-y-3">
+                              <p className="card-title">Add payout</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="label">Amount ($)</label>
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    className="input"
+                                    value={pf.amount}
+                                    onChange={e => setPayoutField(account.id, 'amount', e.target.value)}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="label">Date</label>
+                                  <input
+                                    type="date"
+                                    className="input"
+                                    value={pf.payout_date}
+                                    onChange={e => setPayoutField(account.id, 'payout_date', e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Notes (optional)"
+                                className="input"
+                                value={pf.notes}
+                                onChange={e => setPayoutField(account.id, 'notes', e.target.value)}
+                              />
+                              <button
+                                onClick={() => handleAddPayout(account.id)}
+                                disabled={addingPayout.has(account.id) || !pf.amount}
+                                className="btn-primary w-full"
+                              >
+                                {addingPayout.has(account.id) ? 'Adding...' : 'Add Payout'}
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  ];
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Confirm dialog */}
       {confirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="card w-full max-w-xs space-y-4">
-            <div className="space-y-1">
-              <p className="dark:text-white text-slate-900 font-semibold text-sm">{confirm.message}</p>
-              {confirm.subtext && <p className="text-slate-500 text-xs">{confirm.subtext}</p>}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setConfirm(null)} className="btn-ghost flex-1 text-sm">Cancel</button>
-              <button
-                onClick={() => { confirm.onConfirm(); setConfirm(null); }}
-                className="flex-1 text-sm px-3 py-1.5 rounded-xl bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 transition-colors font-medium"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          message={confirm.message}
+          subtext={confirm.subtext}
+          confirmLabel="Delete"
+          onConfirm={() => { confirm.onConfirm(); setConfirm(null); }}
+          onCancel={() => setConfirm(null)}
+        />
       )}
 
       {/* New / Edit modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="card w-full max-w-md space-y-4">
-            <h2 className="text-base font-semibold dark:text-white text-slate-900">
-              {editingId ? 'Edit Account' : 'New Prop Firm Account'}
-            </h2>
+        <div className="fixed inset-0 z-50 !m-0 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="relative card w-full max-w-md space-y-5 shadow-2xl">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {editingId ? 'Edit Account' : 'New Prop Firm Account'}
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {editingId ? 'Update the account details.' : 'Track the cost and outcome of a prop firm account.'}
+              </p>
+            </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="label">Firm Name</label>
+                <label className="label">Firm name</label>
                 <input
-                  className="input w-full"
+                  className="input"
                   placeholder="e.g. FTMO"
                   value={form.firm_name}
                   onChange={e => setForm(f => ({ ...f, firm_name: e.target.value }))}
@@ -411,20 +464,20 @@ export default function Expenses() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Account Size ($)</label>
+                  <label className="label">Account size ($)</label>
                   <input
                     type="number"
-                    className="input w-full"
+                    className="input"
                     placeholder="50000"
                     value={form.account_size}
                     onChange={e => setForm(f => ({ ...f, account_size: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <label className="label">Purchase Price ($)</label>
+                  <label className="label">Purchase price ($)</label>
                   <input
                     type="number"
-                    className="input w-full"
+                    className="input"
                     placeholder="499"
                     value={form.purchase_price}
                     onChange={e => setForm(f => ({ ...f, purchase_price: e.target.value }))}
@@ -436,7 +489,7 @@ export default function Expenses() {
                 <div>
                   <label className="label">Status</label>
                   <select
-                    className="input w-full"
+                    className="input"
                     value={form.status}
                     onChange={e => {
                       const status = e.target.value;
@@ -455,10 +508,10 @@ export default function Expenses() {
                   </select>
                 </div>
                 <div>
-                  <label className="label">Purchase Date</label>
+                  <label className="label">Purchase date</label>
                   <input
                     type="date"
-                    className="input w-full"
+                    className="input"
                     value={form.purchased_at}
                     onChange={e => setForm(f => ({ ...f, purchased_at: e.target.value }))}
                   />
@@ -468,20 +521,20 @@ export default function Expenses() {
               {(form.status === 'funded' || form.status === 'blown') && (
                 <div className={`grid gap-3 ${form.status === 'blown' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <div>
-                    <label className="label">Passed Date <span className="text-slate-600 font-normal">(optional)</span></label>
+                    <label className="label">Passed date <span className="text-slate-400 dark:text-slate-500 font-normal">(optional)</span></label>
                     <input
                       type="date"
-                      className="input w-full"
+                      className="input"
                       value={form.passed_at}
                       onChange={e => setForm(f => ({ ...f, passed_at: e.target.value }))}
                     />
                   </div>
                   {form.status === 'blown' && (
                     <div>
-                      <label className="label">Blown Date <span className="text-slate-600 font-normal">(optional)</span></label>
+                      <label className="label">Blown date <span className="text-slate-400 dark:text-slate-500 font-normal">(optional)</span></label>
                       <input
                         type="date"
-                        className="input w-full"
+                        className="input"
                         value={form.blown_at}
                         onChange={e => setForm(f => ({ ...f, blown_at: e.target.value }))}
                       />
@@ -491,9 +544,9 @@ export default function Expenses() {
               )}
 
               <div>
-                <label className="label">Notes <span className="text-slate-600 font-normal">(optional)</span></label>
+                <label className="label">Notes <span className="text-slate-400 dark:text-slate-500 font-normal">(optional)</span></label>
                 <textarea
-                  className="input w-full resize-none"
+                  className="input resize-none"
                   rows={2}
                   placeholder="Any notes..."
                   value={form.notes}
@@ -502,12 +555,12 @@ export default function Expenses() {
               </div>
             </div>
 
-            <div className="flex gap-3 pt-1">
-              <button onClick={() => setShowModal(false)} className="btn-ghost flex-1">Cancel</button>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setShowModal(false)} className="btn-ghost">Cancel</button>
               <button
                 onClick={handleSave}
                 disabled={saving || !form.firm_name || !form.account_size || !form.purchase_price}
-                className="btn-primary flex-1 disabled:opacity-40"
+                className="btn-primary"
               >
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Create Account'}
               </button>

@@ -1,26 +1,20 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { useGamification, TIER_STYLES } from '../hooks/useGamification';
 import { useTheme } from '../contexts/ThemeContext';
-import XPBar from './XPBar';
+import Logo from './Logo';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: ChartIcon   },
   { to: '/trades',    label: 'Trades',    icon: ListIcon    },
   { to: '/series',    label: 'Series',    icon: SeriesIcon  },
   { to: '/expenses',  label: 'Expenses',  icon: WalletIcon  },
-  { to: '/profile',   label: 'Profile',   icon: PersonIcon  },
 ];
 
 const PIN_KEY = 'sidebarPinned';
 
 export default function Layout() {
-  const { profile, refetch } = useGamification();
   const { isDark, toggle } = useTheme();
   const location = useLocation();
-
-  // Keep sidebar fresh after every navigation (e.g. returning from TradeForm)
-  useEffect(() => { refetch(); }, [location.pathname, refetch]);
 
   // Sidebar: collapsed icon rail by default, slides out over content on hover, pin keeps it open
   const [pinned, setPinned] = useState(() => {
@@ -41,55 +35,48 @@ export default function Layout() {
   useEffect(() => { setHovered(false); }, [location.pathname]);
 
   const navigate = useNavigate();
-  const s = profile ? (TIER_STYLES[profile.level.tier] ?? TIER_STYLES.bronze) : null;
 
   // Labels fade in only when the sidebar is open
   const labelCls = `whitespace-nowrap transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`;
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-surface">
       {/* Sidebar placeholder — reserves rail width, or full width when pinned */}
       <div className={`relative flex-shrink-0 transition-[width] duration-300 ease-in-out ${pinned ? 'w-56' : 'w-16'}`}>
         <aside
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          className={`absolute inset-y-0 left-0 z-40 bg-surface-card border-r border-surface-border flex flex-col overflow-hidden transition-[width,box-shadow] duration-300 ease-in-out ${
+          className={`absolute inset-y-0 left-0 z-40 bg-surface-card flex flex-col overflow-hidden transition-[width,box-shadow] duration-300 ease-in-out ${
             open ? 'w-56' : 'w-16'
-          } ${hovered && !pinned ? 'shadow-2xl shadow-black/40' : ''}`}
+          } ${
+            hovered && !pinned
+              ? 'shadow-[0_12px_40px_rgb(15_23_42/0.14)] dark:shadow-[0_12px_40px_rgb(0_0_0/0.5)]'
+              : 'shadow-[var(--shadow-card)]'
+          }`}
         >
           {/* Logo */}
-          <div className="h-[104px] flex items-center justify-center flex-shrink-0 relative">
+          <div className="h-20 px-4 flex items-center flex-shrink-0">
             <button
               onClick={() => navigate('/dashboard')}
-              className="hover:opacity-80 transition-opacity"
+              className="flex items-center gap-3 rounded-lg hover:opacity-80 transition-opacity"
               title="Dashboard"
             >
-              <img
-                src="/ascend-logo.png" alt="Ascend"
-                className={`h-16 w-auto transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 absolute'}`}
-              />
-              <img
-                src="/favicon.png" alt="Ascend"
-                className={`h-7 w-auto transition-opacity duration-200 ${open ? 'opacity-0 absolute' : 'opacity-100'}`}
-              />
+              <Logo className="w-8 h-8 flex-shrink-0 text-accent" />
+              <span className={`text-lg text-slate-900 dark:text-white ${labelCls}`}>Ascend</span>
             </button>
           </div>
 
-          <div className="px-3 mb-2 h-4 flex items-center">
-            <p className={`text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-3 ${labelCls}`}>Menu</p>
-          </div>
-
-          <nav className="flex-1 px-3 space-y-0.5">
+          <nav className="flex-1 px-3 pt-2 space-y-1">
             {links.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
                 title={open ? undefined : label}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 ${
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors duration-150 ${
                     isActive
-                      ? 'bg-accent/10 text-accent font-medium'
-                      : 'text-slate-500 hover:bg-surface-raised dark:hover:text-white hover:text-slate-900'
+                      ? 'bg-accent-soft text-accent font-medium'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white'
                   }`
                 }
               >
@@ -99,40 +86,16 @@ export default function Layout() {
             ))}
           </nav>
 
-          {/* Pin + theme toggle */}
-          <div className="px-3 pb-3 space-y-1.5">
-            <SidebarButton onClick={togglePin} label={pinned ? 'Collapse sidebar' : 'Pin sidebar'} labelCls={labelCls}>
-              <ChevronIcon className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${pinned ? 'rotate-180' : ''}`} />
-            </SidebarButton>
+          {/* Theme toggle + pin */}
+          <div className="px-3 pb-4 space-y-1">
             <SidebarButton onClick={toggle} label={isDark ? 'Light mode' : 'Dark mode'} labelCls={labelCls}>
               {isDark ? <SunIcon className="w-4 h-4 flex-shrink-0" /> : <MoonIcon className="w-4 h-4 flex-shrink-0" />}
             </SidebarButton>
+            <SidebarButton onClick={togglePin} label={pinned ? 'Collapse sidebar' : 'Pin sidebar'} labelCls={labelCls} active={pinned}>
+              <ChevronIcon className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${pinned ? 'rotate-180' : ''}`} />
+            </SidebarButton>
           </div>
 
-          {/* XP summary */}
-          {profile && s && (
-            <div className="border-t border-surface-border px-4 py-4 space-y-2.5 h-[92px] flex-shrink-0">
-              {open ? (
-                <>
-                  <div className="flex items-center justify-between whitespace-nowrap">
-                    <span className={`text-xs font-semibold ${s.text}`}>
-                      Lv {profile.level.level} · {s.label}
-                    </span>
-                    {profile.streakDays >= 1 && (
-                      <span className="text-xs text-slate-500">🔥 {profile.streakDays}d</span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-500 truncate leading-tight">{profile.level.name}</p>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-1" title={`Lv ${profile.level.level} · ${profile.level.name}`}>
-                  <span className={`text-xs font-semibold ${s.text}`}>{profile.level.level}</span>
-                  {profile.streakDays >= 1 && <span className="text-[10px] text-slate-500">🔥{profile.streakDays}</span>}
-                </div>
-              )}
-              <XPBar xp={profile.xp} level={profile.level} compact />
-            </div>
-          )}
         </aside>
       </div>
 
@@ -146,12 +109,17 @@ export default function Layout() {
   );
 }
 
-function SidebarButton({ onClick, label, labelCls, children }) {
+function SidebarButton({ onClick, label, labelCls, active = false, children }) {
   return (
     <button
       onClick={onClick}
       title={label}
-      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs text-slate-500 hover:bg-surface-raised dark:hover:text-white hover:text-slate-900 transition-all duration-150 border border-surface-border"
+      aria-pressed={active || undefined}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors duration-150 hover:bg-surface-raised ${
+        active
+          ? 'text-accent'
+          : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+      }`}
     >
       {children}
       <span className={labelCls}>{label}</span>
@@ -197,14 +165,6 @@ function WalletIcon({ className }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-3" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 12h5v4h-5a2 2 0 010-4z" />
-    </svg>
-  );
-}
-
-function PersonIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
     </svg>
   );
 }

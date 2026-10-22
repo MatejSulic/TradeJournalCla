@@ -4,11 +4,13 @@ import { format, parseISO } from 'date-fns';
 import { getTrades, getEntryModels, getSeries, downloadBackup, restoreBackup } from '../api';
 import DatePicker from '../components/DatePicker';
 
-const PNL_STYLE = {
-  win:       'bg-profit/10 text-profit border border-profit/20',
-  loss:      'bg-loss/10 text-loss border border-loss/20',
-  breakeven: 'dark:bg-white/5 bg-black/5 text-slate-500 dark:border-white/10 border-black/10',
+const PNL_PILL = {
+  win:       ['W', 'bg-accent-soft text-accent'],
+  loss:      ['L', 'bg-loss/10 text-loss'],
+  breakeven: ['BE', 'bg-neutral/15 text-slate-500 dark:bg-neutral/25 dark:text-slate-300'],
 };
+
+const PAGER_BTN = 'btn-ghost !px-2.5 !py-1.5 text-xs';
 
 export default function TradeList() {
   const navigate = useNavigate();
@@ -81,8 +83,8 @@ export default function TradeList() {
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold dark:text-white text-slate-900">Trades</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-3xl font-semibold tracking-tight dark:text-white text-slate-900">Trades</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {trades.length === 0 ? 'No trades found' : `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, trades.length)} of ${trades.length} trade${trades.length !== 1 ? 's' : ''}`}
           </p>
         </div>
@@ -111,15 +113,15 @@ export default function TradeList() {
 
       {/* Restore confirmation */}
       {pendingRestore && (
-        <div className="card border-loss/30 bg-loss/5 flex items-center justify-between gap-4">
+        <div className="card !py-4 !bg-loss/10 !shadow-none flex items-center justify-between gap-4 flex-shrink-0">
           <p className="text-sm dark:text-white text-slate-900">
             File <span className="font-semibold text-loss">{pendingRestore.name}</span> will replace the entire database. This action is irreversible. Continue?
           </p>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setPendingRestore(null)} className="btn-ghost text-xs py-1.5 px-3">
+            <button onClick={() => setPendingRestore(null)} className="btn-ghost text-xs !py-1.5 !px-3">
               Cancel
             </button>
-            <button onClick={confirmRestore} className="btn-primary text-xs py-1.5 px-3">
+            <button onClick={confirmRestore} className="btn-danger !bg-loss !text-white hover:!brightness-110 text-xs !py-1.5 !px-3">
               Restore Database
             </button>
           </div>
@@ -128,146 +130,144 @@ export default function TradeList() {
 
       {/* Backup/restore message */}
       {backupMsg && (
-        <div className={`text-sm px-4 py-3 rounded-lg border ${backupMsg.type === 'success' ? 'bg-profit/10 text-profit border-profit/20' : 'bg-loss/10 text-loss border-loss/20'}`}>
+        <div className={`text-sm px-4 py-3 rounded-2xl flex-shrink-0 ${backupMsg.type === 'success' ? 'bg-accent-soft text-accent' : 'bg-loss/10 text-loss'}`}>
           {backupMsg.text}
           <button onClick={() => setBackupMsg(null)} className="ml-3 opacity-60 hover:opacity-100 text-xs">✕</button>
         </div>
       )}
 
       {/* Filters */}
-      <div className="card space-y-2 flex-shrink-0">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Filters</p>
-          {hasFilters && (
+      <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+        <div className="seg">
+          {[['', 'All'], ['live', 'Live'], ['backtest', 'Backtest']].map(([val, label]) => (
             <button
-              className="text-xs text-accent hover:underline"
-              onClick={() => setFilters({ asset: '', session_type: '', series_id: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
+              key={val}
+              type="button"
+              onClick={() => set('session_type', val)}
+              className={`seg-item ${filters.session_type === val ? 'seg-item-active' : ''}`}
             >
-              Clear all
+              {label}
             </button>
-          )}
+          ))}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="flex rounded-lg border border-surface-border overflow-hidden">
-            {[['', 'All'], ['live', 'Live'], ['backtest', 'Backtest']].map(([val, label]) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => set('session_type', val)}
-                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  filters.session_type === val
-                    ? val === 'live'
-                      ? 'bg-profit text-black'
-                      : val === 'backtest'
-                        ? 'bg-accent text-black'
-                        : 'bg-surface-raised dark:text-white text-slate-900'
-                    : 'text-slate-500 dark:hover:text-white hover:text-slate-900'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <select className="input w-32" value={filters.asset} onChange={e => set('asset', e.target.value)}>
-            <option value="">All assets</option>
-            {['NQ','MNQ','ES','MES'].map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-          <select className="input w-40" value={filters.series_id} onChange={e => set('series_id', e.target.value)}>
-            <option value="">All series</option>
-            {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <select className="input w-36" value={filters.direction} onChange={e => set('direction', e.target.value)}>
-            <option value="">All directions</option>
-            <option value="long">Long</option>
-            <option value="short">Short</option>
-          </select>
-          <select className="input w-36" value={filters.pnl} onChange={e => set('pnl', e.target.value)}>
-            <option value="">All results</option>
-            <option value="win">Win</option>
-            <option value="loss">Loss</option>
-            <option value="breakeven">Breakeven</option>
-          </select>
-          <select className="input w-44" value={filters.entry_model_id} onChange={e => set('entry_model_id', e.target.value)}>
-            <option value="">All setups</option>
-            {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-          <div className="flex items-center gap-2">
-            <DatePicker className="w-40" value={filters.from} onChange={v => set('from', v)} placeholder="From" />
-            <span className="text-slate-600 text-sm">–</span>
-            <DatePicker className="w-40" value={filters.to} onChange={v => set('to', v)} placeholder="To" />
-          </div>
+        <select className="input !w-32 !py-2" value={filters.asset} onChange={e => set('asset', e.target.value)}>
+          <option value="">All assets</option>
+          {['NQ','MNQ','ES','MES'].map(a => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+        <select className="input !w-40 !py-2" value={filters.series_id} onChange={e => set('series_id', e.target.value)}>
+          <option value="">All series</option>
+          {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select className="input !w-36 !py-2" value={filters.direction} onChange={e => set('direction', e.target.value)}>
+          <option value="">All directions</option>
+          <option value="long">Long</option>
+          <option value="short">Short</option>
+        </select>
+        <select className="input !w-36 !py-2" value={filters.pnl} onChange={e => set('pnl', e.target.value)}>
+          <option value="">All results</option>
+          <option value="win">Win</option>
+          <option value="loss">Loss</option>
+          <option value="breakeven">Breakeven</option>
+        </select>
+        <select className="input !w-44 !py-2" value={filters.entry_model_id} onChange={e => set('entry_model_id', e.target.value)}>
+          <option value="">All setups</option>
+          {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+        <div className="flex items-center gap-2">
+          <DatePicker className="w-40" value={filters.from} onChange={v => set('from', v)} placeholder="From" />
+          <span className="text-slate-400 text-sm">–</span>
+          <DatePicker className="w-40" value={filters.to} onChange={v => set('to', v)} placeholder="To" />
         </div>
+        {hasFilters && (
+          <button
+            className="btn-ghost !px-3 !py-2 text-xs"
+            onClick={() => setFilters({ asset: '', session_type: '', series_id: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
+          >
+            Clear all
+          </button>
+        )}
       </div>
 
       {/* Table */}
-      <div className="card p-0 overflow-hidden flex flex-col flex-1 min-h-0">
+      <div className="card !p-0 overflow-hidden flex flex-col flex-1 min-h-0">
         <div className="overflow-y-auto flex-1 min-h-0">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-surface-card z-10">
-            <tr className="border-b border-surface-border">
-              <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Date / Time</th>
-              <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Asset</th>
-              <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Type</th>
-              <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Dir</th>
-              <th className="px-5 py-4 text-left text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Setup</th>
-              <th className="px-5 py-4 text-right text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Risk</th>
-              <th className="px-5 py-4 text-right text-[11px] font-semibold text-slate-600 uppercase tracking-wide">R:R</th>
-              <th className="px-5 py-4 text-right text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Result</th>
-              <th className="px-5 py-4"></th>
+            <tr className="bg-surface-raised/50">
+              {[
+                ['Date', 'text-left'], ['Asset', 'text-left'], ['Type', 'text-left'], ['Direction', 'text-left'],
+                ['Setup', 'text-left'], ['Risk', 'text-right'], ['R:R', 'text-right'], ['Result', 'text-center'], ['', ''],
+              ].map(([h, align], i) => (
+                <th key={i} className={`px-5 py-3 ${align} text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap`}>{h}</th>
+              ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-surface-border">
             {trades.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-5 py-16 text-center">
                   <p className="text-slate-500 text-sm mb-2">No trades found.</p>
-                  <Link to="/trades/new" className="text-xs text-accent hover:underline">Add your first trade →</Link>
+                  <Link to="/trades/new" className="text-xs font-medium text-accent hover:underline">Add your first trade →</Link>
                 </td>
               </tr>
             )}
-            {pageTrades.map(t => (
+            {pageTrades.map(t => {
+              const [pillText, pillCls] = PNL_PILL[t.pnl] ?? [t.pnl, 'bg-surface-raised text-slate-500'];
+              return (
               <tr
                 key={t.id}
-                className="border-b border-surface-border/50 hover:bg-surface-raised/50 cursor-pointer transition-colors group"
+                className="hover:bg-surface-raised/60 cursor-pointer transition-colors group"
                 onClick={() => navigate(`/trades/${t.id}`)}
               >
-                <td className="px-5 py-3.5 text-slate-500 dark:group-hover:text-slate-300 group-hover:text-slate-700 transition-colors">{fmtDate(t.entry_time)}</td>
-                <td className="px-5 py-3.5 dark:text-white text-slate-900 font-semibold">{t.asset}</td>
-                <td className="px-5 py-3.5 text-slate-500">
-                  {t.session_type === 'backtest' ? 'Backtest' : 'Live'}
+                <td className="px-5 py-3 text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">{fmtDate(t.entry_time)}</td>
+                <td className="px-5 py-3 dark:text-white text-slate-900 font-semibold">{t.asset}</td>
+                <td className="px-5 py-3">
+                  {t.session_type === 'backtest'
+                    ? <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-neutral/15 text-slate-500 dark:bg-neutral/25 dark:text-slate-300">Backtest</span>
+                    : <span className="text-slate-500 dark:text-slate-400">Live</span>}
                 </td>
-                <td className={`px-5 py-3.5 capitalize text-xs font-semibold ${t.direction === 'long' ? 'text-profit' : 'text-loss'}`}>
-                  {t.direction}
+                <td className={`px-5 py-3 text-xs font-semibold whitespace-nowrap ${t.direction === 'long' ? 'text-accent' : 'text-loss'}`}>
+                  {t.direction === 'long' ? '↑ Long' : '↓ Short'}
                 </td>
-                <td className="px-5 py-3.5 text-slate-500 max-w-[160px] truncate">
-                  {t.entry_models?.length
-                    ? t.entry_models.map(m => m.name).join(', ')
-                    : '—'}
+                <td className="px-5 py-3 max-w-[280px]">
+                  {t.entry_models?.length ? (
+                    <div className="flex items-center gap-1 overflow-hidden" title={t.entry_models.map(m => m.name).join(', ')}>
+                      {t.entry_models.slice(0, 2).map(m => (
+                        <span key={m.id} className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-surface-raised text-slate-600 dark:text-slate-300 whitespace-nowrap truncate max-w-[120px]">
+                          {m.name}
+                        </span>
+                      ))}
+                      {t.entry_models.length > 2 && (
+                        <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">+{t.entry_models.length - 2}</span>
+                      )}
+                    </div>
+                  ) : <span className="text-slate-400">—</span>}
                 </td>
-                <td className="px-5 py-3.5 text-right text-slate-500">
-                  {t.risk_amount != null ? `$${t.risk_amount.toFixed(2)}` : '—'}
+                <td className="px-5 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                  {t.risk_amount != null ? `$${t.risk_amount.toFixed(2)}` : <span className="text-slate-400">—</span>}
                 </td>
-                <td className="px-5 py-3.5 text-right text-slate-500">
-                  {t.risk_reward != null ? `${t.risk_reward.toFixed(2)}R` : '—'}
+                <td className="px-5 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                  {t.risk_reward != null ? `${t.risk_reward.toFixed(2)}R` : <span className="text-slate-400">—</span>}
                 </td>
-                <td className="px-5 py-3.5 text-right">
-                  <span className={`text-xs font-semibold capitalize px-2.5 py-1 rounded-lg ${PNL_STYLE[t.pnl] ?? ''}`}>
-                    {t.pnl}
+                <td className="px-5 py-3 text-center">
+                  <span title={t.pnl} className={`inline-flex items-center justify-center min-w-[2.25rem] text-xs font-semibold px-2.5 py-1 rounded-full ${pillCls}`}>
+                    {pillText}
                   </span>
                 </td>
-                <td className="px-5 py-3.5 text-right">
+                <td className="px-5 py-3 text-right">
                   <Link
                     to={`/trades/${t.id}/edit`}
                     onClick={e => e.stopPropagation()}
-                    className="text-xs text-slate-600 hover:text-accent transition-colors"
+                    className="text-xs font-medium text-slate-400 hover:text-accent opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
                   >
                     Edit
                   </Link>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         </div>
@@ -275,18 +275,18 @@ export default function TradeList() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center justify-center gap-1 flex-shrink-0">
           <button
             onClick={() => setPage(1)}
             disabled={page === 1}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className={PAGER_BTN}
           >
             «
           </button>
           <button
             onClick={() => setPage(p => p - 1)}
             disabled={page === 1}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className={PAGER_BTN}
           >
             ‹
           </button>
@@ -299,11 +299,11 @@ export default function TradeList() {
             }, [])
             .map((p, idx) =>
               p === '...'
-                ? <span key={`ellipsis-${idx}`} className="px-2 py-1.5 text-xs text-slate-600">…</span>
+                ? <span key={`ellipsis-${idx}`} className="px-2 py-1.5 text-xs text-slate-400">…</span>
                 : <button
                     key={p}
                     onClick={() => setPage(p)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${p === page ? 'bg-accent text-black' : 'text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised'}`}
+                    className={p === page ? 'btn-primary !px-3 !py-1.5 text-xs' : `${PAGER_BTN} !px-3`}
                   >
                     {p}
                   </button>
@@ -311,14 +311,14 @@ export default function TradeList() {
           <button
             onClick={() => setPage(p => p + 1)}
             disabled={page === totalPages}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className={PAGER_BTN}
           >
             ›
           </button>
           <button
             onClick={() => setPage(totalPages)}
             disabled={page === totalPages}
-            className="px-2.5 py-1.5 rounded-lg text-xs text-slate-400 dark:hover:text-white hover:text-slate-900 hover:bg-surface-raised disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className={PAGER_BTN}
           >
             »
           </button>

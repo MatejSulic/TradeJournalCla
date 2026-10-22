@@ -100,42 +100,6 @@ function runSchema() {
       created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
 
-    -- Gamification tables
-    CREATE TABLE IF NOT EXISTS player_profile (
-      user_id         TEXT    PRIMARY KEY DEFAULT 'local',
-      xp              INTEGER NOT NULL DEFAULT 0,
-      level           INTEGER NOT NULL DEFAULT 1,
-      streak_days     INTEGER NOT NULL DEFAULT 0,
-      last_trade_date TEXT,
-      created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-      updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS achievements (
-      key         TEXT PRIMARY KEY,
-      name        TEXT NOT NULL,
-      description TEXT NOT NULL,
-      icon        TEXT NOT NULL,
-      xp_reward   INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS player_achievements (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id         TEXT    NOT NULL DEFAULT 'local',
-      achievement_key TEXT    NOT NULL REFERENCES achievements(key),
-      trade_id        INTEGER REFERENCES trades(id) ON DELETE SET NULL,
-      unlocked_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-      UNIQUE(user_id, achievement_key)
-    );
-
-    CREATE TABLE IF NOT EXISTS xp_log (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id    TEXT    NOT NULL DEFAULT 'local',
-      trade_id   INTEGER REFERENCES trades(id) ON DELETE SET NULL,
-      source     TEXT    NOT NULL,
-      amount     INTEGER NOT NULL,
-      created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-    );
   `);
 
   // Migrations for existing DBs (idempotent)
@@ -146,6 +110,7 @@ function runSchema() {
   try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN passed_at TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN blown_at TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE trades ADD COLUMN premarket_analysis TEXT`); } catch (_) {}
+  migrateNoTradeDays();
 
   // Migrate legacy "X Backtest" asset names
   db.exec(`
@@ -153,6 +118,54 @@ function runSchema() {
     SET session_type = 'backtest', asset = REPLACE(asset, ' Backtest', '')
     WHERE asset LIKE '% Backtest'
   `);
+}
+
+// No-trade days live in `trades` with day_type = 'notrade' and no asset/direction/pnl.
+// Dropping NOT NULL needs a table rebuild (SQLite can't ALTER constraints).
+function migrateNoTradeDays() {
+  const cols = db.prepare('PRAGMA table_info(trades)').all();
+  if (cols.some(c => c.name === 'day_type')) return;
+
+  const keep = cols.map(c => c.name);
+  // Old DBs may carry unrelated FK orphans (e.g. leftover gamification rows) — only fail on new ones
+  const fkBefore = db.pragma('foreign_key_check').length;
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE trades_new (
+          id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+          day_type           TEXT    NOT NULL DEFAULT 'trade' CHECK(day_type IN ('trade', 'notrade')),
+          asset              TEXT,
+          session_type       TEXT    NOT NULL DEFAULT 'live',
+          series_id          INTEGER REFERENCES series(id) ON DELETE SET NULL,
+          direction          TEXT    CHECK(direction IN ('long', 'short') OR direction IS NULL),
+          pnl                TEXT    CHECK(pnl IN ('win', 'loss', 'breakeven') OR pnl IS NULL),
+          risk_reward        REAL,
+          risk_amount        REAL,
+          pnl_dollars        REAL,
+          entry_time         TEXT    NOT NULL,
+          premarket_analysis TEXT,
+          why_entered        TEXT,
+          no_trade_reason    TEXT,
+          faded_setups       TEXT,
+          psychology         TEXT,
+          improvements       TEXT,
+          risk_management    TEXT    CHECK(risk_management IN ('low', 'perfect', 'high') OR risk_management IS NULL),
+          created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+          updated_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+          CHECK(day_type = 'notrade' OR (asset IS NOT NULL AND direction IS NOT NULL AND pnl IS NOT NULL))
+        );
+      `);
+      db.exec(`INSERT INTO trades_new (${keep.join(', ')}) SELECT ${keep.join(', ')} FROM trades`);
+      db.exec('DROP TABLE trades');
+      db.exec('ALTER TABLE trades_new RENAME TO trades');
+      const fkErrors = db.pragma('foreign_key_check');
+      if (fkErrors.length > fkBefore) throw new Error(`no-trade migration FK check failed: ${JSON.stringify(fkErrors)}`);
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
 }
 
 function reinitDb() {
@@ -163,26 +176,5 @@ function reinitDb() {
 
 initPragmas();
 runSchema();
-
-// Seed achievement definitions (idempotent)
-const seedAchievement = db.prepare(`
-  INSERT OR IGNORE INTO achievements (key, name, description, icon, xp_reward)
-  VALUES (?, ?, ?, ?, ?)
-`);
-
-const achievementSeeds = [
-  ['first_trade',     'First Blood',      'Log your first trade',                        '🩸', 100],
-  ['hat_trick',       'Hat Trick',        'Win 3 trades in a row',                       '🎩', 150],
-  ['deep_reflection', 'Deep Reflection',  'Complete all 3 notes on 10 different trades', '🧠', 200],
-  ['full_chart',      'Chart Surgeon',    'Upload all 3 screenshot types on one trade',  '🔬', 75],
-  ['perfect_risk',    'Iron Discipline',  'Log 10 trades with Perfect risk management',  '🛡️', 250],
-  ['setup_collector', 'Setup Collector',  'Create and use 5+ different entry models',    '🗂️', 100],
-  ['streak_7',        'Consistent',       'Maintain a 7-day logging streak',             '🔥', 300],
-  ['century',         'Century Club',     'Log 100 trades total',                        '💯', 500],
-  ['high_conviction', 'High Conviction',  'Log 5 trades with R:R ≥ 3.0',               '💎', 200],
-  ['diversified',     'Asset Explorer',   'Trade 5 different assets',                    '🗺️', 150],
-];
-
-for (const row of achievementSeeds) seedAchievement.run(...row);
 
 module.exports = { db, UPLOADS_DIR, DB_PATH, reinitDb };

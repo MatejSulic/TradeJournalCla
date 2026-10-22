@@ -21,8 +21,6 @@ export const getTrades = (params = {}) => {
   return req(`/trades${str ? `?${str}` : ''}`);
 };
 export const getTrade = (id) => req(`/trades/${id}`);
-export const getStats = () => req('/trades/stats');
-export const getEquity = () => req('/trades/equity');
 
 export const createTrade = (formData) =>
   req('/trades', { method: 'POST', body: formData });
@@ -55,9 +53,6 @@ export async function restoreBackup(file) {
   }
   return res.json();
 }
-
-// Gamification
-export const getProfile = () => req('/gamification/profile');
 
 // Series
 export const getSeries    = ()         => req('/series');

@@ -5,14 +5,13 @@ import Dashboard from './pages/Dashboard';
 import TradeList from './pages/TradeList';
 import TradeDetail from './pages/TradeDetail';
 import TradeForm from './pages/TradeForm';
-import Profile from './pages/Profile';
 import SeriesPage from './pages/Series';
 import Expenses from './pages/Expenses';
 
 export default function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -23,7 +22,7 @@ export default function App() {
             <Route path="/trades/:id/edit" element={<TradeForm />} />
             <Route path="/series" element={<SeriesPage />} />
             <Route path="/expenses" element={<Expenses />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

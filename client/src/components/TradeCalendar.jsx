@@ -7,17 +7,9 @@ import {
   addDays, addMonths, subMonths,
   isSameMonth, isToday, getISOWeek,
 } from 'date-fns';
-import { useTheme } from '../contexts/ThemeContext';
 
-export default function TradeCalendar({ trades, passedDates = new Set() }) {
+export default function TradeCalendar({ trades, noTradeDays = [], passedDates = new Set() }) {
   const navigate = useNavigate();
-  const { isDark } = useTheme();
-  const COLOR_MAIN = isDark ? '#c6f135' : '#65a30d';
-  const HATCH = {
-    background: isDark
-      ? 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.025) 5px, rgba(255,255,255,0.025) 10px)'
-      : 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.04) 5px, rgba(0,0,0,0.04) 10px)',
-  };
   const [calMonth, setCalMonth] = useState(() => {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
@@ -27,10 +19,12 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
 
   const handleDayClick = (date, info) => {
     if (!info) return;
-    if (info.count === 1) {
+    // A no-trade entry on a day with trades is only reachable from the popup
+    const extra = noTradeByDate[format(date, 'yyyy-MM-dd')];
+    if (info.count === 1 && !extra) {
       navigate(`/trades/${info.ts[0].id}`);
     } else {
-      setPopup({ date, trades: info.ts });
+      setPopup({ date, trades: extra ? [...info.ts, extra] : info.ts });
     }
   };
 
@@ -47,6 +41,11 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
       const key = format(parseISO(t.entry_time), 'yyyy-MM-dd');
       (byDate[key] ??= []).push(t);
     } catch { /* ignore bad dates */ }
+  });
+
+  const noTradeByDate = {};
+  noTradeDays.forEach(d => {
+    try { noTradeByDate[format(parseISO(d.entry_time), 'yyyy-MM-dd')] ??= d; } catch { /* ignore bad dates */ }
   });
 
   // ── build 6-week grid (Sun → Sat) ───────────────────────────────────
@@ -82,7 +81,8 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
     const netRR  = hasRR ? winRR - lossRR : null;
     const dollarTs = ts.filter(t => t.pnl_dollars != null);
     const netDollars = dollarTs.length > 0 ? dollarTs.reduce((s, t) => s + t.pnl_dollars, 0) : null;
-    return { ts, wins, losses, breakevens, winRate, result, count: ts.length, netRR, netDollars };
+    const strong = result === 'win' && ((netRR != null && netRR >= 2) || (wins >= 2 && losses === 0));
+    return { ts, wins, losses, breakevens, winRate, result, strong, count: ts.length, netRR, netDollars };
   };
 
   const weekInfo = (week) => {
@@ -100,229 +100,250 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
     return { count: ts.length, wins, losses, breakevens, winRate, days, netRR };
   };
 
-  const pnlColor = (result) =>
-    result === 'win'  ? COLOR_MAIN :
-    result === 'loss' ? '#fb923c'  : // orange-400
-    '#94a3b8'; // slate-400
+  // Subtle diagonal stripes for days outside the visible month (theme-aware via CSS variable)
+  const HATCH = {
+    backgroundImage:
+      'repeating-linear-gradient(135deg, rgb(var(--color-surface-border) / 0.9) 0 1.5px, transparent 1.5px 7px)',
+  };
 
-  const DAY_HEADERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const resultText = {
+    win: 'text-accent',
+    loss: 'text-loss',
+    breakeven: 'text-slate-500 dark:text-slate-400',
+  };
+
+  // Compact so it fits narrow tiles: +$420, -$1.3k
+  const fmtDollars = (v) => {
+    const a = Math.abs(v);
+    const body = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : a.toFixed(0);
+    return `${v >= 0 ? '+' : '-'}$${body}`;
+  };
+
+  const resultLabel = (info) =>
+    info.count === 1
+      ? ({ win: 'W', loss: 'L', breakeven: 'BE' }[info.ts[0].pnl])
+      : `${info.wins}W/${info.losses}L`;
+
+  const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const COLS = { gridTemplateColumns: 'repeat(7, minmax(0, 1fr)) minmax(84px, 110px)' };
+
+  const LEGEND = [
+    ['Win', 'bg-accent-soft'],
+    ['Strong win', 'bg-accent'],
+    ['Loss', 'bg-loss/15'],
+    ['BE', 'bg-neutral/30'],
+  ];
 
   return (
     <div className="card !p-0 overflow-hidden h-full flex flex-col">
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-center gap-3 p-4 border-b border-surface-border">
-        <h2 className="text-sm font-semibold dark:text-white text-slate-900">Trading Calendar</h2>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 pt-5 pb-3">
+        <h2 className="card-title mr-1">Trading Calendar</h2>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <button
+            type="button"
             onClick={() => setCalMonth(m => subMonths(m, 1))}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-base"
+            aria-label="Previous month"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-500 dark:text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors"
           >
-            ‹
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
-          <span className="text-sm font-semibold dark:text-white text-slate-900 w-[130px] text-center">
+          <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white w-[118px] text-center">
             {format(calMonth, 'MMMM yyyy')}
           </span>
           <button
+            type="button"
             onClick={() => setCalMonth(m => addMonths(m, 1))}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-base"
+            aria-label="Next month"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-500 dark:text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors"
           >
-            ›
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
           </button>
         </div>
 
-        <button
-          onClick={goToCurrent}
-          className="text-xs px-3 py-1 rounded-lg border border-surface-border text-slate-400 dark:hover:text-white hover:text-slate-900 hover:border-slate-500 transition-colors"
-        >
-          Current Month
-        </button>
-
-        <button
-          onClick={() => setShowPnl(v => !v)}
-          title={showPnl ? 'Hide P&L' : 'Show P&L'}
-          className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border transition-colors ${
-            showPnl
-              ? 'border-[#c6f135]/40 text-[#c6f135] hover:border-[#c6f135]/70'
-              : 'border-surface-border text-slate-500 dark:hover:text-white hover:text-slate-900 hover:border-slate-500'
-          }`}
-        >
-          {showPnl ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
-            </svg>
-          )}
-          P&L
-        </button>
+        <div className="seg">
+          <button type="button" onClick={goToCurrent} className="seg-item">
+            Current Month
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPnl(v => !v)}
+            title={showPnl ? 'Hide P&L' : 'Show P&L'}
+            className={`seg-item flex items-center gap-1.5 ${showPnl ? 'seg-item-active' : ''}`}
+          >
+            {showPnl ? (
+              <svg className="w-3.5 h-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            ) : (
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            )}
+            P&L
+          </button>
+        </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-3 ml-auto">
-          {[['win', COLOR_MAIN, 'W'], ['loss', '#fb923c', 'L'], ['breakeven', '#94a3b8', 'BE']].map(([k, c, l]) => (
-            <span key={k} className="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: c, opacity: 0.6 }} />
-              {l}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 ml-auto">
+          {LEGEND.map(([label, cls]) => (
+            <span key={label} className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className={`w-2.5 h-2.5 rounded-[4px] flex-shrink-0 ${cls}`} />
+              {label}
             </span>
           ))}
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <span className="w-2.5 h-2.5 rounded-[4px] flex-shrink-0 border border-dashed border-neutral" />
+            No trade
+          </span>
         </div>
       </div>
 
       {/* ── Grid ── */}
-      <div className="overflow-x-auto flex-1">
-        <div className="h-full flex flex-col" style={{ minWidth: 520 }}>
+      <div className="flex-1 min-h-0 px-5 pb-5">
+        <div className="h-full flex flex-col gap-1.5 min-w-0">
 
           {/* Day-of-week header row */}
-          <div
-            className="grid border-b border-surface-border"
-            style={{ gridTemplateColumns: 'repeat(7, 1fr) 120px' }}
-          >
+          <div className="grid gap-1.5" style={COLS}>
             {DAY_HEADERS.map(d => (
-              <div key={d} className="py-2 text-center text-[10px] font-semibold text-slate-600 uppercase tracking-widest border-r border-surface-border">
+              <div key={d} className="pb-1 text-center text-xs font-medium text-slate-400 dark:text-slate-500">
                 {d}
               </div>
             ))}
-            <div className="py-2 text-center text-[10px] font-semibold text-slate-600 uppercase tracking-widest">
-              WEEKLY
+            <div className="pb-1 text-center text-xs font-medium text-slate-400 dark:text-slate-500">
+              Week
             </div>
           </div>
 
           {/* Week rows — flex-1 so they fill remaining height evenly */}
-          <div className="flex flex-col flex-1">
+          <div className="flex flex-col flex-1 min-h-0 gap-1.5">
           {weeks.map((week, wi) => {
-            const wi_info = weekInfo(week);
+            const wk = weekInfo(week);
+            const wkResult = wk.wins > wk.losses ? 'win' : wk.losses > wk.wins ? 'loss' : 'breakeven';
 
             return (
-              <div
-                key={wi}
-                className="grid flex-1 border-b border-surface-border last:border-b-0"
-                style={{ gridTemplateColumns: 'repeat(7, 1fr) 120px' }}
-              >
+              <div key={wi} className="grid flex-1 min-h-[52px] gap-1.5" style={COLS}>
                 {/* Day cells */}
                 {week.map((date, di) => {
                   const info      = dayInfo(date);
                   const inMonth   = isSameMonth(date, calMonth);
                   const todayFlag = isToday(date);
                   const key       = format(date, 'yyyy-MM-dd');
-                  const isPassed  = inMonth && info?.result === 'win' && passedDates.has(key);
+                  const shown     = info && inMonth ? info : null;
+                  const isPassed  = !!shown && shown.result === 'win' && passedDates.has(key);
+                  const noTrade   = !info && inMonth ? noTradeByDate[key] : null;
+                  const strong    = !!shown?.strong;
 
-                  // Determine border/bg tint based on result
-                  let cellBorder = 'border border-transparent';
-                  let cellBg     = '';
-                  if (info && inMonth) {
-                    if (isPassed) {
-                      cellBorder = 'border border-[#c6f135]/70';
-                      cellBg     = 'bg-[#c6f135]/[0.08]';
-                    } else if (info.result === 'win') {
-                      cellBorder = 'border border-[#c6f135]/25';
-                      cellBg     = 'bg-[#c6f135]/[0.04]';
-                    } else if (info.result === 'loss') {
-                      cellBorder = 'border border-orange-500/25';
-                      cellBg     = 'bg-orange-500/[0.04]';
-                    }
+                  let tile = 'bg-surface-raised/50';
+                  if (!inMonth) tile = 'opacity-60';
+                  else if (shown) {
+                    tile =
+                      strong                       ? 'bg-accent text-white' :
+                      shown.result === 'win'       ? 'bg-accent-soft' :
+                      shown.result === 'loss'      ? 'bg-loss/10' :
+                                                     'bg-neutral/15 dark:bg-neutral/20';
+                  } else if (noTrade) {
+                    tile = 'border border-dashed border-neutral/60';
                   }
 
-                  const clickable = !!(info && inMonth);
+                  const ring = isPassed
+                    ? 'ring-2 ring-accent ring-offset-2 ring-offset-surface-card'
+                    : todayFlag && inMonth
+                    ? 'ring-1 ring-inset ring-accent/50'
+                    : '';
+
+                  const clickable = !!shown || !!noTrade;
+                  const muted = strong ? 'text-white/75' : 'text-slate-400 dark:text-slate-500';
+
                   return (
                     <div
                       key={di}
-                      onClick={() => clickable && handleDayClick(date, info)}
-                      className={`relative border-r border-surface-border p-2.5 ${cellBorder} ${cellBg} ${
-                        todayFlag ? 'ring-1 ring-inset ring-accent/30' : ''
-                      } ${clickable ? 'cursor-pointer hover:brightness-110 transition-all' : ''}`}
+                      onClick={() => noTrade ? navigate(`/trades/${noTrade.id}`) : shown && handleDayClick(date, shown)}
+                      className={`relative rounded-xl overflow-hidden min-w-0 ${tile} ${ring} ${
+                        clickable ? 'cursor-pointer hover:brightness-[1.04] dark:hover:brightness-125 transition-[filter]' : ''
+                      }`}
                       style={!inMonth ? HATCH : undefined}
                     >
                       {/* Date number */}
-                      <span className={`absolute top-2 right-2.5 text-xs font-semibold ${
-                        todayFlag
-                          ? 'text-accent'
-                          : inMonth
-                          ? 'text-slate-500'
-                          : 'text-slate-700'
+                      <span className={`absolute top-1.5 right-2 flex items-center gap-1 text-[11px] font-medium tabular-nums ${
+                        todayFlag && inMonth && !strong ? 'text-accent font-semibold' : inMonth ? muted : 'text-slate-400/70 dark:text-slate-600'
                       }`}>
+                        {todayFlag && inMonth && (
+                          <span className={`w-1.5 h-1.5 rounded-full ${strong ? 'bg-white' : 'bg-accent'}`} />
+                        )}
                         {format(date, 'd')}
                       </span>
 
-                      {/* Trade summary */}
-                      {info && inMonth && (
-                        <>
-                        {isPassed && (
-                          <span className="absolute bottom-2 right-2 text-[9px] font-bold tracking-wide px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(198,241,53,0.15)', color: COLOR_MAIN }}>
-                            PASS
-                          </span>
-                        )}
-                        {/* W / L / BE top-left */}
-                        <span
-                          className="absolute top-2 left-2.5 text-xs font-bold leading-tight"
-                          style={{ color: pnlColor(info.result) }}
-                        >
-                          {info.count === 1
-                            ? ({ win: 'W', loss: 'L', breakeven: 'BE' }[info.ts[0].pnl])
-                            : `${info.wins}W/${info.losses}L`}
+                      {isPassed && (
+                        <span className={`absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold tracking-wide px-1.5 py-0.5 rounded-md ${
+                          strong ? 'bg-white/20 text-white' : 'bg-accent text-white'
+                        }`}>
+                          PASS
                         </span>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pt-4">
-                          {/* Dollar PnL */}
-                          {info.netDollars !== null && showPnl ? (
-                            <span
-                              className="text-base font-bold leading-tight"
-                              style={{ color: info.netDollars >= 0 ? COLOR_MAIN : '#fb923c' }}
-                            >
-                              {info.netDollars >= 0 ? '+' : '-'}${Math.abs(info.netDollars).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </span>
-                          ) : (
-                            <span
-                              className="text-base font-bold leading-tight"
-                              style={{ color: pnlColor(info.result) }}
-                            >
-                              {info.count === 1
-                                ? ({ win: 'W', loss: 'L', breakeven: 'BE' }[info.ts[0].pnl])
-                                : `${info.wins}W / ${info.losses}L`}
-                            </span>
-                          )}
+                      )}
 
-                          {/* Trade count */}
-                          <span className="text-[11px] text-slate-500 leading-tight">
-                            {info.count} {info.count === 1 ? 'trade' : 'trades'}
-                          </span>
+                      {noTrade && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pt-3 px-0.5 text-center">
+                          <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">No trade</span>
+                          {noTrade.faded_setups && (
+                            <span className="text-[10px] text-slate-400/80 dark:text-slate-500/80">faded setup</span>
+                          )}
                         </div>
-                        </>
+                      )}
+
+                      {/* Trade summary */}
+                      {shown && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pt-3 px-0.5 text-center">
+                          {shown.netDollars !== null && showPnl ? (
+                            <>
+                              <span className={`text-xs 2xl:text-sm font-semibold leading-tight tabular-nums tracking-tight whitespace-nowrap ${
+                                strong ? 'text-white' : shown.netDollars >= 0 ? 'text-accent' : 'text-loss'
+                              }`}>
+                                {fmtDollars(shown.netDollars)}
+                              </span>
+                              <span className={`text-[10px] font-semibold leading-tight whitespace-nowrap truncate max-w-full ${strong ? 'text-white/80' : resultText[shown.result]}`}>
+                                {resultLabel(shown)}
+                                <span className={`font-normal ${muted}`}> · {shown.count}</span>
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className={`text-xs 2xl:text-sm font-semibold leading-tight whitespace-nowrap ${strong ? 'text-white' : resultText[shown.result]}`}>
+                                {resultLabel(shown)}
+                              </span>
+                              <span className={`text-[10px] leading-tight whitespace-nowrap truncate max-w-full ${muted}`}>
+                                {shown.count} {shown.count === 1 ? 'trade' : 'trades'}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
                 })}
 
                 {/* Weekly summary cell */}
-                <div className="p-3 flex flex-col justify-center gap-1 border-l border-surface-border bg-surface-raised/20">
-                  <span className="text-[10px] text-slate-600 uppercase tracking-wider">
+                <div className="rounded-xl bg-surface-raised px-2.5 py-1.5 flex flex-col justify-center gap-0.5 min-w-0">
+                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
                     W{getISOWeek(week[3])}
                   </span>
-                  {wi_info.count > 0 ? (
+                  {wk.count > 0 ? (
                     <>
-                      <span
-                        className="text-sm font-bold"
-                        style={{ color: pnlColor(wi_info.wins > wi_info.losses ? 'win' : wi_info.losses > wi_info.wins ? 'loss' : 'breakeven') }}
-                      >
-                        {wi_info.wins}W / {wi_info.losses}L
+                      <span className={`text-xs font-semibold leading-tight ${resultText[wkResult]}`}>
+                        {wk.wins}W / {wk.losses}L
                       </span>
-                      {wi_info.netRR !== null && (
-                        <span
-                          className="text-[11px] font-semibold"
-                          style={{ color: wi_info.netRR >= 0 ? COLOR_MAIN : '#fb923c' }}
-                        >
-                          {wi_info.netRR >= 0 ? '+' : ''}{wi_info.netRR.toFixed(2)}R
-                        </span>
-                      )}
-                      <span className="text-[10px] text-slate-600">
-                        {wi_info.days}d
+                      <span className="flex items-baseline gap-1.5 text-[11px] leading-tight">
+                        {wk.netRR !== null && (
+                          <span className={`font-semibold tabular-nums ${wk.netRR >= 0 ? 'text-accent' : 'text-loss'}`}>
+                            {wk.netRR >= 0 ? '+' : ''}{wk.netRR.toFixed(2)}R
+                          </span>
+                        )}
+                        <span className="text-slate-400 dark:text-slate-500">{wk.days}d</span>
                       </span>
                     </>
                   ) : (
-                    <>
-                      <span className="text-sm font-semibold text-slate-700">—</span>
-                      <span className="text-[10px] text-slate-700">0d</span>
-                    </>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 leading-tight">— · 0d</span>
                   )}
                 </div>
               </div>
@@ -331,56 +352,74 @@ export default function TradeCalendar({ trades, passedDates = new Set() }) {
           </div>{/* end flex weeks wrapper */}
         </div>
       </div>
+
       {popup && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setPopup(null)}
         >
           <div
-            className="card w-full max-w-sm flex flex-col gap-3"
+            className="card w-full max-w-sm flex flex-col gap-4"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold dark:text-white text-slate-900">
-                {format(popup.date, 'EEEE, d. MMMM yyyy')}
-              </span>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="card-title">{format(popup.date, 'EEEE, MMMM d, yyyy')}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {popup.trades.filter(t => t.day_type !== 'notrade').length} trades
+                </span>
+              </div>
               <button
+                type="button"
                 onClick={() => setPopup(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors text-lg leading-none"
+                aria-label="Close"
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors"
               >
-                ×
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
             </div>
 
             {/* Trade list */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               {popup.trades.map(t => {
-                const col =
-                  t.pnl === 'win' ? COLOR_MAIN :
-                  t.pnl === 'loss' ? '#fb923c' :
-                  '#94a3b8';
+                if (t.day_type === 'notrade') return (
+                  <button
+                    type="button"
+                    key={t.id}
+                    onClick={() => { setPopup(null); navigate(`/trades/${t.id}`); }}
+                    className="flex items-center justify-between rounded-2xl border border-dashed border-neutral/60 px-4 py-3 hover:bg-surface-raised transition-colors text-left"
+                  >
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">No-trade day</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{t.faded_setups ? 'faded setup' : 'notes'}</span>
+                  </button>
+                );
+                const pill =
+                  t.pnl === 'win'  ? 'bg-accent-soft text-accent' :
+                  t.pnl === 'loss' ? 'bg-loss/10 text-loss' :
+                                     'bg-neutral/15 text-slate-500 dark:text-slate-300';
                 const label = t.pnl === 'win' ? 'W' : t.pnl === 'loss' ? 'L' : 'BE';
                 return (
                   <button
+                    type="button"
                     key={t.id}
                     onClick={() => { setPopup(null); navigate(`/trades/${t.id}`); }}
-                    className="flex items-center justify-between rounded-xl border border-surface-border bg-surface-raised/40 px-4 py-3 hover:bg-surface-raised transition-colors text-left"
+                    className="flex items-center justify-between rounded-2xl bg-surface-raised/60 px-4 py-3 hover:bg-surface-raised transition-colors text-left"
                   >
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-semibold dark:text-white text-slate-900">
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white">
                         {t.asset}
-                        <span className="ml-2 text-xs text-slate-500 font-normal capitalize">{t.direction}</span>
+                        <span className="ml-2 text-xs text-slate-500 dark:text-slate-400 font-normal capitalize">{t.direction}</span>
                       </span>
-                      {t.risk_reward && (
-                        <span className="text-[11px] text-slate-500">{t.risk_reward}R</span>
+                      {t.risk_reward != null && t.risk_reward !== 0 && (
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">{t.risk_reward}R</span>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
                         {format(parseISO(t.entry_time), 'HH:mm')}
                       </span>
-                      <span className="text-sm font-bold" style={{ color: col }}>{label}</span>
+                      <span className={`min-w-[32px] text-center text-xs font-semibold px-2 py-1 rounded-lg ${pill}`}>{label}</span>
                     </div>
                   </button>
                 );

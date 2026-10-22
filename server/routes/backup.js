@@ -67,11 +67,19 @@ router.post('/', upload.single('backup'), (req, res) => {
     return res.status(400).json({ error: 'journal.db in ZIP is not a valid SQLite database' });
   }
 
+  const previousPath = `${DB_PATH}.pre-restore`;
   try {
-    // Write new DB file
+    // Write new DB file (keep the current one so a failed migration can be rolled back)
     db.close();
+    fs.copyFileSync(DB_PATH, previousPath);
     fs.writeFileSync(DB_PATH, dbBuf);
-    reinitDb();
+    try {
+      reinitDb();
+    } catch (e) {
+      try { db.close(); } catch (_) {}
+      fs.copyFileSync(previousPath, DB_PATH);
+      throw e;
+    }
 
     // Restore uploads — clear existing, write from ZIP
     if (fs.existsSync(UPLOADS_DIR)) {
@@ -89,6 +97,7 @@ router.post('/', upload.single('backup'), (req, res) => {
     }
 
     fs.unlinkSync(tempPath);
+    fs.rmSync(previousPath, { force: true });
     res.json({ ok: true });
   } catch (e) {
     try { reinitDb(); } catch (_) {}

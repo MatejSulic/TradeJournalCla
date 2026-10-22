@@ -3,7 +3,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { db, UPLOADS_DIR } = require('../db');
-const { awardXP, recalcNoteXP, revokeXP } = require('../gamification');
 
 const router = express.Router();
 
@@ -35,6 +34,7 @@ function hydrateTrade(trade) {
 // List all trades
 router.get('/', (req, res) => {
   const { asset, direction, entry_model_id, from, to, pnl, session_type, series_id } = req.query;
+  const day_type = req.query.day_type || 'trade'; // 'trade' | 'notrade' | 'all'
   let sql = 'SELECT DISTINCT t.* FROM trades t';
   const joins = [];
   const where = ['1=1'];
@@ -57,6 +57,7 @@ router.get('/', (req, res) => {
   if (joins.length) sql += ' ' + joins.join(' ');
   sql += ' WHERE ' + where.join(' AND ');
 
+  if (day_type !== 'all') { sql += ' AND t.day_type = ?'; params.push(day_type); }
   if (asset)        { sql += ' AND t.asset = ?';          params.push(asset); }
   if (session_type) { sql += ' AND t.session_type = ?';   params.push(session_type); }
   if (series_id)    { sql += ' AND t.series_id = ?';      params.push(Number(series_id)); }
@@ -69,40 +70,6 @@ router.get('/', (req, res) => {
 
   const trades = db.prepare(sql).all(...params).map(hydrateTrade);
   res.json(trades);
-});
-
-// Stats for dashboard
-router.get('/stats', (_req, res) => {
-  const trades = db.prepare('SELECT pnl, risk_reward FROM trades').all();
-  if (!trades.length) return res.json({ total: 0, wins: 0, losses: 0, breakevens: 0, winRate: 0, avgRR: 0 });
-
-  const wins       = trades.filter(t => t.pnl === 'win').length;
-  const losses     = trades.filter(t => t.pnl === 'loss').length;
-  const breakevens = trades.filter(t => t.pnl === 'breakeven').length;
-  const rrTrades   = trades.filter(t => t.risk_reward != null);
-  const avgRR      = rrTrades.length ? rrTrades.reduce((s, t) => s + t.risk_reward, 0) / rrTrades.length : 0;
-  const decidedTrades = wins + losses;
-
-  res.json({
-    total: trades.length,
-    wins,
-    losses,
-    breakevens,
-    winRate: decidedTrades ? (wins / decidedTrades) * 100 : 0,
-    avgRR,
-  });
-});
-
-// Win/loss performance curve
-router.get('/equity', (_req, res) => {
-  const rows = db.prepare('SELECT entry_time, pnl FROM trades ORDER BY entry_time ASC').all();
-  let score = 0;
-  const data = rows.map(r => {
-    if (r.pnl === 'win')  score += 1;
-    if (r.pnl === 'loss') score -= 1;
-    return { date: r.entry_time, pnl: r.pnl, score };
-  });
-  res.json(data);
 });
 
 // Get single trade with screenshots
@@ -119,73 +86,45 @@ router.get('/:id', (req, res) => {
 
 // Create trade
 router.post('/', uploadFields, (req, res) => {
-  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, pnl_dollars, entry_time,
-          premarket_analysis, why_entered, psychology, improvements, risk_management, entry_model_ids } = req.body;
+  const v = tradeValues(req.body);
+  if (!v.error) v.error = duplicateNoTradeError(v);
+  if (v.error) return rejectWithCleanup(req, res, v.error);
 
-  if (!asset || !direction || !pnl || !entry_time)
-    return res.status(400).json({ error: 'asset, direction, pnl, entry_time required' });
-
-  const insert = db.prepare(`
-    INSERT INTO trades (asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, pnl_dollars,
-                        entry_time, premarket_analysis, why_entered, psychology, improvements, risk_management)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const result = insert.run(
-    asset, session_type || 'live',
-    series_id ? Number(series_id) : null,
-    direction, pnl,
-    risk_reward ? parseFloat(risk_reward) : null,
-    risk_amount ? parseFloat(risk_amount) : null,
-    pnl_dollars !== undefined && pnl_dollars !== '' ? parseFloat(pnl_dollars) : null,
-    entry_time,
-    premarket_analysis || null, why_entered || null, psychology || null,
-    improvements || null, risk_management || null
-  );
+  const result = db.prepare(`
+    INSERT INTO trades (${TRADE_COLUMNS.join(', ')})
+    VALUES (${TRADE_COLUMNS.map(() => '?').join(', ')})
+  `).run(...TRADE_COLUMNS.map(c => v[c]));
 
   const tradeId = result.lastInsertRowid;
 
-  saveEntryModels(tradeId, entry_model_ids);
+  if (v.day_type === 'trade') saveEntryModels(tradeId, req.body.entry_model_ids);
   saveScreenshots(req.files, tradeId);
 
   const trade = db.prepare('SELECT * FROM trades WHERE id = ?').get(tradeId);
   const screenshots = db.prepare('SELECT * FROM screenshots WHERE trade_id = ?').all(tradeId);
-  const gamification = awardXP(tradeId);
-  res.status(201).json({ ...hydrateTrade(trade), screenshots, gamification });
+  res.status(201).json({ ...hydrateTrade(trade), screenshots });
 });
 
 // Update trade
 router.put('/:id', uploadFields, (req, res) => {
   const trade = db.prepare('SELECT id FROM trades WHERE id = ?').get(req.params.id);
-  if (!trade) return res.status(404).json({ error: 'not found' });
+  if (!trade) return rejectWithCleanup(req, res, 'not found', 404);
 
-  const { asset, session_type, series_id, direction, pnl, risk_reward, risk_amount, pnl_dollars, entry_time,
-          premarket_analysis, why_entered, psychology, improvements, risk_management,
-          delete_screenshot_ids, entry_model_ids } = req.body;
+  const { delete_screenshot_ids, entry_model_ids } = req.body;
+  const v = tradeValues(req.body);
+  if (!v.error) v.error = duplicateNoTradeError(v, req.params.id);
+  if (v.error) return rejectWithCleanup(req, res, v.error);
 
   db.prepare(`
     UPDATE trades SET
-      asset = ?, session_type = ?, series_id = ?, direction = ?, pnl = ?, risk_reward = ?,
-      risk_amount = ?, pnl_dollars = ?, entry_time = ?, premarket_analysis = ?, why_entered = ?, psychology = ?,
-      improvements = ?, risk_management = ?,
+      ${TRADE_COLUMNS.map(c => `${c} = ?`).join(', ')},
       updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = ?
-  `).run(
-    asset, session_type || 'live',
-    series_id ? Number(series_id) : null,
-    direction, pnl,
-    risk_reward ? parseFloat(risk_reward) : null,
-    risk_amount ? parseFloat(risk_amount) : null,
-    pnl_dollars !== undefined && pnl_dollars !== '' ? parseFloat(pnl_dollars) : null,
-    entry_time,
-    premarket_analysis || null, why_entered || null, psychology || null,
-    improvements || null, risk_management || null,
-    req.params.id
-  );
+  `).run(...TRADE_COLUMNS.map(c => v[c]), req.params.id);
 
   // Replace entry models
   db.prepare('DELETE FROM trade_entry_models WHERE trade_id = ?').run(req.params.id);
-  saveEntryModels(req.params.id, entry_model_ids);
+  if (v.day_type === 'trade') saveEntryModels(req.params.id, entry_model_ids);
 
   // Delete specified screenshots
   if (delete_screenshot_ids) {
@@ -203,15 +142,23 @@ router.put('/:id', uploadFields, (req, res) => {
 
   saveScreenshots(req.files, req.params.id);
 
+  // No-trade days have no LTF screenshots — drop any left over from a trade switched to no-trade
+  if (v.day_type === 'notrade') {
+    const ltf = db.prepare("SELECT id, filename FROM screenshots WHERE trade_id = ? AND type = 'ltf'").all(req.params.id);
+    for (const ss of ltf) {
+      const fp = path.join(UPLOADS_DIR, ss.filename);
+      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      db.prepare('DELETE FROM screenshots WHERE id = ?').run(ss.id);
+    }
+  }
+
   const updated = db.prepare('SELECT * FROM trades WHERE id = ?').get(req.params.id);
   const screenshots = db.prepare('SELECT * FROM screenshots WHERE trade_id = ?').all(req.params.id);
-  const gamification = recalcNoteXP(req.params.id);
-  res.json({ ...hydrateTrade(updated), screenshots, gamification });
+  res.json({ ...hydrateTrade(updated), screenshots });
 });
 
 // Delete trade
 router.delete('/:id', (req, res) => {
-  revokeXP(req.params.id);
   const screenshots = db.prepare('SELECT filename FROM screenshots WHERE trade_id = ?').all(req.params.id);
   for (const ss of screenshots) {
     const fp = path.join(UPLOADS_DIR, ss.filename);
@@ -220,6 +167,68 @@ router.delete('/:id', (req, res) => {
   db.prepare('DELETE FROM trades WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
+
+const TRADE_COLUMNS = [
+  'day_type', 'asset', 'session_type', 'series_id', 'direction', 'pnl', 'risk_reward', 'risk_amount',
+  'pnl_dollars', 'entry_time', 'premarket_analysis', 'why_entered', 'no_trade_reason', 'faded_setups',
+  'psychology', 'improvements', 'risk_management',
+];
+
+// Normalise request body into column values. No-trade days keep only their own notes.
+function tradeValues(body) {
+  const day_type = body.day_type === 'notrade' ? 'notrade' : 'trade';
+  const text = k => body[k] || null;
+  const num = k => body[k] !== undefined && body[k] !== '' ? parseFloat(body[k]) : null;
+
+  if (!body.entry_time) return { error: 'entry_time required' };
+
+  if (day_type === 'notrade') {
+    return {
+      day_type, asset: null, session_type: 'live', series_id: null, direction: null, pnl: null,
+      risk_reward: null, risk_amount: null, pnl_dollars: null, entry_time: body.entry_time,
+      premarket_analysis: text('premarket_analysis'), why_entered: null,
+      no_trade_reason: text('no_trade_reason'), faded_setups: text('faded_setups'),
+      psychology: text('psychology'), improvements: null, risk_management: null,
+    };
+  }
+
+  if (!body.asset || !body.direction || !body.pnl)
+    return { error: 'asset, direction, pnl, entry_time required' };
+  if (!['long', 'short'].includes(body.direction)) return { error: 'invalid direction' };
+  if (!['win', 'loss', 'breakeven'].includes(body.pnl)) return { error: 'invalid pnl' };
+  if (body.session_type && !['live', 'backtest'].includes(body.session_type)) return { error: 'invalid session_type' };
+  if (body.risk_management && !['low', 'perfect', 'high'].includes(body.risk_management))
+    return { error: 'invalid risk_management' };
+
+  return {
+    day_type, asset: body.asset, session_type: body.session_type || 'live',
+    series_id: body.series_id ? Number(body.series_id) : null,
+    direction: body.direction, pnl: body.pnl,
+    risk_reward: body.risk_reward ? parseFloat(body.risk_reward) : null,
+    risk_amount: body.risk_amount ? parseFloat(body.risk_amount) : null,
+    pnl_dollars: num('pnl_dollars'), entry_time: body.entry_time,
+    premarket_analysis: text('premarket_analysis'), why_entered: text('why_entered'),
+    no_trade_reason: null, faded_setups: null,
+    psychology: text('psychology'), improvements: text('improvements'), risk_management: text('risk_management'),
+  };
+}
+
+// One no-trade day per date
+function duplicateNoTradeError(v, ownId = null) {
+  if (v.day_type !== 'notrade') return null;
+  const dup = db.prepare(`
+    SELECT id FROM trades WHERE day_type = 'notrade' AND substr(entry_time, 1, 10) = ? AND id != ?
+  `).get(v.entry_time.slice(0, 10), ownId ?? -1);
+  return dup ? 'a no-trade day for this date already exists' : null;
+}
+
+// Multer saves uploads before validation — remove them when the request is rejected
+function rejectWithCleanup(req, res, error, status = 400) {
+  for (const f of Object.values(req.files ?? {}).flat()) {
+    try { fs.unlinkSync(f.path); } catch (_) {}
+  }
+  return res.status(status).json({ error });
+}
 
 function saveEntryModels(tradeId, entry_model_ids) {
   if (!entry_model_ids) return;

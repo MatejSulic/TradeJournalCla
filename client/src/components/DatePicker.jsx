@@ -55,8 +55,8 @@ function WheelColumn({ items, value, onChange, fmt = v => String(v).padStart(2, 
         style={{ background: 'linear-gradient(to bottom, rgb(var(--color-surface-card)) 20%, transparent 100%)' }} />
       <div className="absolute inset-x-0 bottom-0 h-16 pointer-events-none z-10"
         style={{ background: 'linear-gradient(to top, rgb(var(--color-surface-card)) 20%, transparent 100%)' }} />
-      <div className="absolute inset-x-1 rounded-lg pointer-events-none"
-        style={{ top: ITEM_H * 2, height: ITEM_H, background: 'rgba(255,255,255,0.06)' }} />
+      <div className="absolute inset-x-1 rounded-lg pointer-events-none bg-accent"
+        style={{ top: ITEM_H * 2 + 4, height: ITEM_H - 8 }} />
       <div
         ref={ref}
         onScroll={handleScroll}
@@ -75,8 +75,8 @@ function WheelColumn({ items, value, onChange, fmt = v => String(v).padStart(2, 
             key={item}
             onClick={() => onChange(item)}
             style={{ height: ITEM_H, scrollSnapAlign: 'center', scrollSnapStop: 'always' }}
-            className={`flex items-center justify-center text-sm cursor-pointer select-none transition-colors
-              ${item === value ? 'dark:text-white text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
+            className={`relative flex items-center justify-center text-sm tabular-nums cursor-pointer select-none transition-colors
+              ${item === value ? 'text-white font-semibold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
           >
             {fmt(item)}
           </div>
@@ -149,10 +149,10 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
   const popup = open ? createPortal(
     <div
       id="dp-portal"
-      className="fixed z-[9999] rounded-xl border border-surface-border shadow-2xl p-3"
-      style={{ background: 'rgb(var(--color-surface-card))', minWidth: 'max-content', top: popupStyle.top, left: popupStyle.left }}
+      className="card fixed z-[9999] !p-3 !shadow-2xl dark:ring-1 dark:ring-surface-border"
+      style={{ minWidth: 'max-content', top: popupStyle.top, left: popupStyle.left }}
     >
-      <p className="text-[10px] text-slate-600 uppercase tracking-widest text-center mb-1">
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 text-center mb-1 tabular-nums">
         {MONTHS[month - 1]} {pad(day)}, {year}
       </p>
       <div className="flex">
@@ -161,19 +161,19 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
         <WheelColumn items={days}   value={day}   onChange={handleDay}   fmt={d => pad(d)} width={48} />
       </div>
       {withTime && (
-        <div className="mt-2 pt-2 border-t border-surface-border">
+        <div className="mt-2">
           <input
             type="time"
             value={time}
             onChange={e => handleTime(e.target.value)}
-            className="input w-full text-center"
+            className="input w-full text-center tabular-nums"
           />
         </div>
       )}
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="btn-primary w-full mt-2 justify-center text-xs py-1.5"
+        className="btn-primary w-full mt-2 !py-2"
       >
         Done
       </button>
@@ -187,9 +187,12 @@ export default function DatePicker({ value, onChange, withTime = false, placehol
         ref={btnRef}
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="input text-left w-full"
+        className="input text-left w-full flex items-center gap-2 tabular-nums"
       >
-        {label ?? <span className="text-slate-600">{placeholder}</span>}
+        <svg className="w-4 h-4 shrink-0 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
+        <span className="truncate">{label ?? <span className="text-slate-400">{placeholder}</span>}</span>
       </button>
       {popup}
     </div>

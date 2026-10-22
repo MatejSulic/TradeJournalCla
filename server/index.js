@@ -15,7 +15,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/series', require('./routes/series'));
 app.use('/api/entry-models', require('./routes/entryModels'));
 app.use('/api/trades', require('./routes/trades'));
-app.use('/api/gamification', require('./routes/gamification'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/expenses', require('./routes/expenses'));
 

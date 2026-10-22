@@ -1,28 +1,46 @@
 import { useTheme } from '../contexts/ThemeContext';
 
+// Chart colors for the current theme — keep in sync with the CSS variables in index.css
 export function useThemeColors() {
   const { isDark } = useTheme();
   return isDark
     ? {
-        tooltipBg: '#111111',
-        tooltipBorder: '#2a2a2a',
-        grid: '#1f1f1f',
-        tick: '#4b5563',
-        colorMain: '#c6f135',
-        colorNeg: '#7c3aed',
-        breakeven: '#3f3f3f',
-        labelColor: '#6b7280',
-        cursorStroke: '#2a2a2a',
+        isDark: true,
+        colorMain: '#4F7BFF',
+        colorNeg: '#FF5C78',
+        breakeven: '#64748B',
+        accentSoft: '#1E2B4D',
+        grid: '#2A3245',
+        tick: '#64748B',
+        labelColor: '#94A3B8',
+        itemColor: '#FFFFFF',
+        tooltipBg: '#1F2636',
+        tooltipBorder: '#2A3245',
+        tooltipShadow: '0 8px 24px rgba(0,0,0,0.35)',
+        cursorStroke: '#2A3245',
       }
     : {
-        tooltipBg: '#ffffff',
-        tooltipBorder: '#e2e8f0',
-        grid: '#e2e8f0',
-        tick: '#94a3b8',
-        colorMain: '#65a30d',
-        colorNeg: '#7c3aed',
-        breakeven: '#94a3b8',
-        labelColor: '#94a3b8',
-        cursorStroke: '#e2e8f0',
+        isDark: false,
+        colorMain: '#2563EB',
+        colorNeg: '#F04461',
+        breakeven: '#94A3B8',
+        accentSoft: '#DBE6FE',
+        grid: '#E4E8EF',
+        tick: '#94A3B8',
+        labelColor: '#64748B',
+        itemColor: '#1E293B',
+        tooltipBg: '#FFFFFF',
+        tooltipBorder: '#E4E8EF',
+        tooltipShadow: '0 8px 24px rgba(15,23,42,0.12)',
+        cursorStroke: '#E4E8EF',
       };
+}
+
+// Shared Recharts <Tooltip> styling: card-coloured bubble, no border, soft shadow
+export function tooltipProps(colors) {
+  return {
+    contentStyle: { background: colors.tooltipBg, border: 'none', borderRadius: 12, fontSize: 12, boxShadow: colors.tooltipShadow },
+    labelStyle: { color: colors.labelColor },
+    itemStyle: { color: colors.itemColor },
+  };
 }

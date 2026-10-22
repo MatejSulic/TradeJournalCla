@@ -11,9 +11,13 @@ export default {
           raised: 'rgb(var(--color-surface-raised) / <alpha-value>)',
           border: 'rgb(var(--color-surface-border) / <alpha-value>)',
         },
-        profit: 'rgb(var(--color-profit) / <alpha-value>)',
-        loss:   'rgb(var(--color-loss) / <alpha-value>)',
-        accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        accent: {
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
+          soft: 'rgb(var(--color-accent-soft) / <alpha-value>)',
+        },
+        profit:  'rgb(var(--color-profit) / <alpha-value>)',
+        loss:    'rgb(var(--color-loss) / <alpha-value>)',
+        neutral: 'rgb(var(--color-neutral) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

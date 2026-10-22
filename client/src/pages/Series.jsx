@@ -68,12 +68,12 @@ export default function SeriesPage() {
   }
 
   return (
-    <div className="p-6 space-y-5 mx-auto" style={{ maxWidth: '96vw' }}>
+    <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold dark:text-white text-slate-900">Series</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Named groups to organise your trades</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">Series</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Named groups to organise your trades</p>
         </div>
         {!showForm && (
           <button onClick={openCreate} className="btn-primary">
@@ -87,13 +87,16 @@ export default function SeriesPage() {
 
       {/* Create / Edit form */}
       {showForm && (
-        <div className="card space-y-4">
-          <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-widest">
-            {editingId ? 'Edit Series' : 'New Series'}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="card space-y-5 max-w-2xl">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              {editingId ? 'Edit Series' : 'New Series'}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Give the group a short, recognisable name.</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="label">Name *</label>
+              <label className="label">Name <span className="text-loss">*</span></label>
               <input
                 className="input"
                 placeholder="e.g. Q2 2025 Backtest"
@@ -114,7 +117,7 @@ export default function SeriesPage() {
                 onChange={e => setField('description', e.target.value)}
               />
             </div>
-            {error && <p className="text-loss text-xs">{error}</p>}
+            {error && <p className="text-loss text-sm">{error}</p>}
             <div className="flex gap-2 justify-end">
               <button type="button" onClick={cancelForm} className="btn-ghost">Cancel</button>
               <button type="submit" disabled={saving} className="btn-primary">
@@ -128,50 +131,68 @@ export default function SeriesPage() {
       {/* Empty state */}
       {series.length === 0 && !showForm && (
         <div className="card flex flex-col items-center justify-center py-16 gap-3">
-          <p className="text-slate-500 text-sm">No series yet.</p>
-          <button onClick={openCreate} className="text-xs text-accent hover:underline">Create your first series →</button>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">No series yet.</p>
+          <button onClick={openCreate} className="text-sm font-medium text-accent hover:underline">Create your first series →</button>
         </div>
       )}
 
       {/* Series list */}
-      <div className="space-y-3">
-        {series.map(s => (
-          <div key={s.id} className="card flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-3">
-                <h3 className="dark:text-white text-slate-900 font-semibold">{s.name}</h3>
-                <Link
-                  to={`/trades?series_id=${s.id}`}
-                  className="text-xs text-slate-500 hover:text-accent transition-colors"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {s.trade_count} trade{s.trade_count !== 1 ? 's' : ''} →
-                </Link>
-              </div>
-              {s.description && (
-                <p className="text-sm text-slate-500 leading-relaxed">{s.description}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                onClick={() => openEdit(s)}
-                className="btn-ghost text-xs py-1.5 px-3"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => setConfirmDelete(s)}
-                className="btn-ghost text-xs py-1.5 px-3 text-loss hover:bg-loss/10"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+      {series.length > 0 && (
+        <div className="card !p-0 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-raised/50">
+              <tr className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                <th className="pl-6 pr-4 py-3.5 text-left font-medium">Name</th>
+                <th className="px-4 py-3.5 text-right font-medium w-32">Trades</th>
+                <th className="pl-4 pr-6 py-3.5 w-40"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-border">
+              {series.map(s => (
+                <tr key={s.id} className="transition-colors hover:bg-surface-raised/60">
+                  <td className="pl-6 pr-4 py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 w-9 h-9 rounded-xl bg-accent-soft text-accent flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122" />
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 dark:text-white leading-tight">{s.name}</p>
+                        {s.description ? (
+                          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">{s.description}</p>
+                        ) : (
+                          <p className="text-sm text-slate-400 dark:text-slate-600 mt-0.5">No description</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-right whitespace-nowrap">
+                    <Link
+                      to={`/trades?series_id=${s.id}`}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 -mr-2 font-medium tabular-nums text-slate-700 dark:text-slate-300 hover:text-accent hover:bg-accent-soft transition-colors"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      {s.trade_count} trade{s.trade_count !== 1 ? 's' : ''}
+                      <span aria-hidden>→</span>
+                    </Link>
+                  </td>
+                  <td className="pl-4 pr-6 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEdit(s)} className="btn-ghost !px-3 !py-1.5 text-xs">Edit</button>
+                      <button onClick={() => setConfirmDelete(s)} className="btn-ghost !px-3 !py-1.5 text-xs hover:!text-loss hover:!bg-loss/10">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {confirmDelete && (
         <ConfirmDialog
-          message={`Delete series "${confirmDelete.name}"? Trades won't be deleted, just unlinked.`}
+          message={`Delete series "${confirmDelete.name}"?`}
+          subtext="Trades won't be deleted, just unlinked."
           confirmLabel="Delete"
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(null)}
