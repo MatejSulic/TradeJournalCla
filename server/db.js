@@ -111,6 +111,8 @@ function runSchema() {
   try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN blown_at TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE trades ADD COLUMN premarket_analysis TEXT`); } catch (_) {}
   migrateNoTradeDays();
+  // What a breakeven trade would have become (win / loss) — only set when pnl = 'breakeven'
+  try { db.exec(`ALTER TABLE trades ADD COLUMN be_outcome TEXT CHECK(be_outcome IN ('win', 'loss') OR be_outcome IS NULL)`); } catch (_) {}
 
   // Migrate legacy "X Backtest" asset names
   db.exec(`

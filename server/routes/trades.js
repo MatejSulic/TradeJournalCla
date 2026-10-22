@@ -62,7 +62,9 @@ router.get('/', (req, res) => {
   if (session_type) { sql += ' AND t.session_type = ?';   params.push(session_type); }
   if (series_id)    { sql += ' AND t.series_id = ?';      params.push(Number(series_id)); }
   if (direction)    { sql += ' AND t.direction = ?';      params.push(direction); }
-  if (pnl)          { sql += ' AND t.pnl = ?';            params.push(pnl); }
+  if (pnl === 'be_win' || pnl === 'be_loss') {
+    sql += " AND t.pnl = 'breakeven' AND t.be_outcome = ?"; params.push(pnl.slice(3));
+  } else if (pnl)   { sql += ' AND t.pnl = ?';            params.push(pnl); }
   if (from)         { sql += ' AND t.entry_time >= ?';    params.push(from); }
   if (to)           { sql += ' AND t.entry_time <= ?';    params.push(to); }
 
@@ -169,7 +171,7 @@ router.delete('/:id', (req, res) => {
 });
 
 const TRADE_COLUMNS = [
-  'day_type', 'asset', 'session_type', 'series_id', 'direction', 'pnl', 'risk_reward', 'risk_amount',
+  'day_type', 'asset', 'session_type', 'series_id', 'direction', 'pnl', 'be_outcome', 'risk_reward', 'risk_amount',
   'pnl_dollars', 'entry_time', 'premarket_analysis', 'why_entered', 'no_trade_reason', 'faded_setups',
   'psychology', 'improvements', 'risk_management',
 ];
@@ -184,7 +186,7 @@ function tradeValues(body) {
 
   if (day_type === 'notrade') {
     return {
-      day_type, asset: null, session_type: 'live', series_id: null, direction: null, pnl: null,
+      day_type, asset: null, session_type: 'live', series_id: null, direction: null, pnl: null, be_outcome: null,
       risk_reward: null, risk_amount: null, pnl_dollars: null, entry_time: body.entry_time,
       premarket_analysis: text('premarket_analysis'), why_entered: null,
       no_trade_reason: text('no_trade_reason'), faded_setups: text('faded_setups'),
@@ -196,6 +198,7 @@ function tradeValues(body) {
     return { error: 'asset, direction, pnl, entry_time required' };
   if (!['long', 'short'].includes(body.direction)) return { error: 'invalid direction' };
   if (!['win', 'loss', 'breakeven'].includes(body.pnl)) return { error: 'invalid pnl' };
+  if (body.be_outcome && !['win', 'loss'].includes(body.be_outcome)) return { error: 'invalid be_outcome' };
   if (body.session_type && !['live', 'backtest'].includes(body.session_type)) return { error: 'invalid session_type' };
   if (body.risk_management && !['low', 'perfect', 'high'].includes(body.risk_management))
     return { error: 'invalid risk_management' };
@@ -204,6 +207,7 @@ function tradeValues(body) {
     day_type, asset: body.asset, session_type: body.session_type || 'live',
     series_id: body.series_id ? Number(body.series_id) : null,
     direction: body.direction, pnl: body.pnl,
+    be_outcome: body.pnl === 'breakeven' ? body.be_outcome || null : null,
     risk_reward: body.risk_reward ? parseFloat(body.risk_reward) : null,
     risk_amount: body.risk_amount ? parseFloat(body.risk_amount) : null,
     pnl_dollars: num('pnl_dollars'), entry_time: body.entry_time,

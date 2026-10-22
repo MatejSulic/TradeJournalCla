@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { getTrade, deleteTrade } from '../api';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { lastListUrl, viewUrl } from '../lastView';
 
 const PILL = 'inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full';
 
@@ -49,7 +50,7 @@ export default function TradeDetail() {
     setDeleting(true);
     setConfirmDelete(false);
     await deleteTrade(id);
-    navigate(trade.day_type === 'notrade' ? '/dashboard' : '/trades');
+    navigate(trade.day_type === 'notrade' ? viewUrl('/dashboard') : lastListUrl());
   };
 
   if (!trade) return <div className="p-8 text-slate-500">Loading…</div>;
@@ -66,7 +67,7 @@ export default function TradeDetail() {
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(lastListUrl())}
             className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 dark:hover:text-white hover:text-slate-900 text-sm transition-colors w-fit"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -85,7 +86,14 @@ export default function TradeDetail() {
               {trade.direction === 'long' ? '↑ Long' : '↓ Short'}
             </span>
             {PNL_PILL[trade.pnl] && (
-              <span className={`${PILL} ${PNL_PILL[trade.pnl][1]}`}>{PNL_PILL[trade.pnl][0]}</span>
+              <span className={`${PILL} ${PNL_PILL[trade.pnl][1]}`}>
+                {PNL_PILL[trade.pnl][0]}
+                {trade.pnl === 'breakeven' && trade.be_outcome && (
+                  <span className={`ml-1 ${trade.be_outcome === 'win' ? 'text-accent' : 'text-loss'}`}>
+                    → would be {trade.be_outcome === 'win' ? 'Win' : 'Loss'}
+                  </span>
+                )}
+              </span>
             )}
             {trade.session_type === 'backtest' && (
               <span className={`${PILL} bg-neutral/15 text-slate-500 dark:bg-neutral/25 dark:text-slate-300`}>Backtest</span>

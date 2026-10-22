@@ -115,6 +115,20 @@ req POST /api/trades -F day_type=notrade -F entry_time=2026-10-20T11:00
 ok "duplicate no-trade day same date -> 400"
 req DELETE "/api/trades/$CID"
 
+# Breakeven outcome: kept only for BE trades, filterable via pnl=be_win / be_loss
+req POST /api/trades -F asset=NQ -F direction=long -F pnl=breakeven -F be_outcome=win -F entry_time=2026-10-19T10:00
+[[ "$CODE" == 201 && "$(json "$BODY" "j.be_outcome")" == win ]] || fail "POST BE with be_outcome=win -> $CODE $BODY"
+BID="$(json "$BODY" "j.id")"
+req GET "/api/trades?pnl=be_win"
+[[ "$(json "$BODY" "j.some(t => t.id === $BID) && j.every(t => t.pnl === 'breakeven' && t.be_outcome === 'win')")" == true ]] \
+  || fail "filter pnl=be_win wrong: $BODY"
+req PUT "/api/trades/$BID" -F asset=NQ -F direction=long -F pnl=win -F be_outcome=win -F entry_time=2026-10-19T10:00
+[[ "$CODE" == 200 && "$(json "$BODY" "j.be_outcome === null")" == true ]] || fail "be_outcome kept on non-BE trade: $BODY"
+req POST /api/trades -F asset=NQ -F direction=long -F pnl=breakeven -F be_outcome=maybe -F entry_time=2026-10-19T10:00
+[[ "$CODE" == 400 ]] || fail "invalid be_outcome -> $CODE (expected 400)"
+req DELETE "/api/trades/$BID"
+ok "BE outcome stored, filtered, dropped on non-BE, validated"
+
 if [[ "${EXPECT_NO_GAMIFICATION:-}" == 1 ]]; then
   [[ "$(json "$TRADE_POST" "'gamification' in j")" == false ]] || fail "POST response still has gamification key"
   ok "POST response has no gamification key"

@@ -6,12 +6,12 @@ import { useThemeColors, tooltipProps } from '../../hooks/useThemeColors';
 const fmt = (v, f) => { try { return format(parseISO(v), f); } catch { return v; } };
 
 const MODES = {
-  score: { label: 'Score', sub: 'Cumulative score · +1 win / −1 loss', step: t => (t.pnl === 'win' ? 1 : t.pnl === 'loss' ? -1 : 0) },
   // Same rule as the Net R card: wins add their R:R, losses cost 1R
   r: { label: 'R', sub: 'Cumulative R · win +R:R / loss −1R', step: t => (t.pnl === 'win' ? Number(t.risk_reward) || 0 : t.pnl === 'loss' ? -1 : 0) },
+  score: { label: 'Score', sub: 'Cumulative score · +1 win / −1 loss', step: t => (t.pnl === 'win' ? 1 : t.pnl === 'loss' ? -1 : 0) },
 };
 
-const readMode = () => { try { return localStorage.getItem('perfMode') === 'r' ? 'r' : 'score'; } catch { return 'score'; } };
+const readMode = () => { try { return localStorage.getItem('perfMode') === 'score' ? 'score' : 'r'; } catch { return 'r'; } };
 
 // Cumulative curve ordered by created_at, as score (+1/−1) or in R
 export default function PerformanceCurve({ trades }) {

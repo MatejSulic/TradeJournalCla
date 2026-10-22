@@ -2,12 +2,13 @@ import { Fragment, useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, reorderEntryModels, createTrade, updateTrade, getSeries } from '../api';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { lastListUrl } from '../lastView';
 import DatePicker from '../components/DatePicker';
 
 const ASSETS = ['NQ', 'MNQ', 'ES', 'MES'];
 
 const EMPTY = {
-  day_type: 'trade', asset: '', session_type: 'live', series_id: '', direction: 'long', pnl: '',
+  day_type: 'trade', asset: '', session_type: 'live', series_id: '', direction: 'long', pnl: '', be_outcome: '',
   risk_reward: '', risk_amount: '', pnl_dollars: '', entry_time: '',
   premarket_analysis: '', why_entered: '', no_trade_reason: '', faded_setups: '',
   psychology: '', improvements: '', risk_management: '',
@@ -70,6 +71,7 @@ export default function TradeForm() {
           series_id: t.series_id ?? '',
           direction: t.direction ?? 'long',
           pnl: t.pnl ?? '',
+          be_outcome: t.be_outcome ?? '',
           risk_reward: t.risk_reward ?? '',
           risk_amount: t.risk_amount ?? '',
           pnl_dollars: t.pnl_dollars ?? '',
@@ -194,8 +196,8 @@ export default function TradeForm() {
       const result = isEdit ? await updateTrade(id, fd) : await createTrade(fd);
       savingRef.current = false;
       setSaving(false);
-      const afterNav = isEdit ? '/dashboard' : `/trades/${result.id}`;
-      navigate(afterNav);
+      // Edit → back to the filtered list it was opened from; new → its detail (form replaced in history)
+      navigate(isEdit ? lastListUrl() : `/trades/${result.id}`, { replace: true });
     } catch (err) {
       setError(err.message);
       savingRef.current = false;
@@ -219,6 +221,7 @@ export default function TradeForm() {
     fields.asset,
     fields.direction === 'long' ? '↑ Long' : '↓ Short',
     fields.pnl && { win: 'Win', loss: 'Loss', breakeven: 'BE' }[fields.pnl],
+    fields.pnl === 'breakeven' && fields.be_outcome && (fields.be_outcome === 'win' ? '→ Win' : '→ Loss'),
     fields.risk_reward && `${fields.risk_reward}R`,
   ].filter(Boolean);
 
@@ -228,7 +231,7 @@ export default function TradeForm() {
       <div className="flex items-center justify-between gap-4 flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <Link
-            to={isEdit ? `/trades/${id}` : '/trades'}
+            to={isEdit ? `/trades/${id}` : lastListUrl()}
             className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 dark:hover:text-white hover:text-slate-900 text-sm transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -258,7 +261,7 @@ export default function TradeForm() {
               <span key={i} className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
                 chip === 'Win' || chip === '↑ Long' ? 'bg-accent-soft text-accent'
                   : chip === 'Loss' || chip === '↓ Short' ? 'bg-loss/10 text-loss'
-                  : chip === 'BE' ? 'bg-neutral/15 text-slate-500 dark:bg-neutral/25 dark:text-slate-300'
+                  : chip === 'BE' || chip.startsWith('→') ? 'bg-neutral/15 text-slate-500 dark:bg-neutral/25 dark:text-slate-300'
                   : 'bg-surface-card text-slate-600 dark:text-slate-300'
               }`}>{chip}</span>
             ))}
@@ -266,7 +269,7 @@ export default function TradeForm() {
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {error && <p className="text-loss text-sm font-medium bg-loss/10 px-3 py-1.5 rounded-xl mr-1">{error}</p>}
-          <Link to={isEdit ? `/trades/${id}` : '/trades'} className="btn-ghost">Cancel</Link>
+          <Link to={isEdit ? `/trades/${id}` : lastListUrl()} className="btn-ghost">Cancel</Link>
           <button type="button" disabled={saving} className="btn-primary" onClick={() => formRef.current?.requestSubmit()}>
             {saving ? 'Saving…' : isEdit ? 'Save Changes' : isNoTrade ? 'Add Day' : 'Add Trade'}
             {!saving && <kbd className="text-[10px] font-semibold bg-white/20 rounded-md px-1.5 py-0.5 ml-1">Ctrl ↵</kbd>}
@@ -332,7 +335,7 @@ export default function TradeForm() {
               <Field label="Result *">
                 <Segmented
                   value={fields.pnl}
-                  onChange={v => set('pnl', v)}
+                  onChange={v => setFields(f => ({ ...f, pnl: v, be_outcome: v === 'breakeven' ? f.be_outcome : '' }))}
                   options={[['win', 'Win'], ['loss', 'Loss'], ['breakeven', 'BE']]}
                   activeCls={v => v === 'win' ? 'bg-accent text-white'
                     : v === 'loss' ? 'bg-loss text-white'
@@ -340,6 +343,17 @@ export default function TradeForm() {
                 />
               </Field>
             </div>
+
+            {fields.pnl === 'breakeven' && (
+              <Field label="BE resulted in">
+                <Segmented
+                  value={fields.be_outcome}
+                  onChange={v => set('be_outcome', fields.be_outcome === v ? '' : v)}
+                  options={[['win', '→ Would be Win'], ['loss', '→ Would be Loss']]}
+                  activeCls={v => v === 'win' ? 'bg-accent-soft text-accent' : 'bg-loss/10 text-loss'}
+                />
+              </Field>
+            )}
 
             <Field label="Entry Time *">
               <DatePicker withTime value={fields.entry_time} onChange={v => set('entry_time', v)} placeholder="Select date & time" />

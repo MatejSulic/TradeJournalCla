@@ -10,9 +10,19 @@ import {
 
 export default function TradeCalendar({ trades, noTradeDays = [], passedDates = new Set() }) {
   const navigate = useNavigate();
-  const [calMonth, setCalMonth] = useState(() => {
+  // Shown month survives leaving the Dashboard (open a trade → come back) within the browser tab
+  const [calMonth, setCalMonthState] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('calMonth');
+      if (saved && /^\d{4}-\d{2}$/.test(saved)) return new Date(Number(saved.slice(0, 4)), Number(saved.slice(5)) - 1, 1);
+    } catch { /* storage unavailable */ }
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const setCalMonth = update => setCalMonthState(m => {
+    const next = typeof update === 'function' ? update(m) : update;
+    try { sessionStorage.setItem('calMonth', format(next, 'yyyy-MM')); } catch { /* storage unavailable */ }
+    return next;
   });
   const [popup, setPopup] = useState(null); // { date, trades } | null
   const [showPnl, setShowPnl] = useState(true);
@@ -398,7 +408,8 @@ export default function TradeCalendar({ trades, noTradeDays = [], passedDates = 
                   t.pnl === 'win'  ? 'bg-accent-soft text-accent' :
                   t.pnl === 'loss' ? 'bg-loss/10 text-loss' :
                                      'bg-neutral/15 text-slate-500 dark:text-slate-300';
-                const label = t.pnl === 'win' ? 'W' : t.pnl === 'loss' ? 'L' : 'BE';
+                const label = t.pnl === 'win' ? 'W' : t.pnl === 'loss' ? 'L'
+                  : t.be_outcome ? `BE→${t.be_outcome === 'win' ? 'W' : 'L'}` : 'BE';
                 return (
                   <button
                     type="button"

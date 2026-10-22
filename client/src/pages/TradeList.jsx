@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { getTrades, getEntryModels, getSeries, downloadBackup, restoreBackup } from '../api';
@@ -10,28 +10,37 @@ const PNL_PILL = {
   breakeven: ['BE', 'bg-neutral/15 text-slate-500 dark:bg-neutral/25 dark:text-slate-300'],
 };
 
+const FILTER_KEYS = ['asset', 'session_type', 'series_id', 'direction', 'pnl', 'entry_model_id', 'from', 'to'];
+
 const PAGER_BTN = 'btn-ghost !px-2.5 !py-1.5 text-xs';
 
 export default function TradeList() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  // Filters + page live in the URL so returning from a trade restores the same view
+  const [searchParams, setSearchParams] = useSearchParams();
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
-  const [filters, setFilters] = useState({
-    asset: '', session_type: '', series_id: searchParams.get('series_id') || '',
-    direction: '', pnl: '', entry_model_id: '', from: '', to: '',
-  });
+  const filters = useMemo(
+    () => Object.fromEntries(FILTER_KEYS.map(k => [k, searchParams.get(k) || ''])),
+    [searchParams],
+  );
   const [backupMsg, setBackupMsg] = useState(null);
   const [pendingRestore, setPendingRestore] = useState(null);
   const [restoring, setRestoring] = useState(false);
-  const [page, setPage] = useState(1);
+  const rawPage = Math.max(1, Number(searchParams.get('page')) || 1);
+  const setPage = p => setSearchParams(prev => {
+    const next = new URLSearchParams(prev);
+    const n = typeof p === 'function' ? p(page) : p;
+    if (n > 1) next.set('page', n); else next.delete('page');
+    return next;
+  }, { replace: true });
   const restoreRef = useRef(null);
 
   const PAGE_SIZE = 25;
 
   const load = useCallback(() => {
-    getTrades(filters).then(data => { setTrades(data); setPage(1); });
+    getTrades(filters).then(setTrades);
   }, [filters]);
 
   useEffect(() => {
@@ -41,11 +50,18 @@ export default function TradeList() {
 
   useEffect(() => { load(); }, [load]);
 
-  const set = (k, v) => setFilters(f => ({ ...f, [k]: v }));
+  // Changing a filter resets to page 1
+  const set = (k, v) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev);
+    if (v) next.set(k, v); else next.delete(k);
+    next.delete('page');
+    return next;
+  }, { replace: true });
 
   const hasFilters = Object.values(filters).some(Boolean);
 
   const totalPages = Math.max(1, Math.ceil(trades.length / PAGE_SIZE));
+  const page = Math.min(rawPage, totalPages); // e.g. after deleting the last trade of the last page
   const pageTrades = trades.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function handleDownloadBackup() {
@@ -170,6 +186,8 @@ export default function TradeList() {
           <option value="win">Win</option>
           <option value="loss">Loss</option>
           <option value="breakeven">Breakeven</option>
+          <option value="be_win">BE → Win</option>
+          <option value="be_loss">BE → Loss</option>
         </select>
         <select className="input !w-44 !py-2" value={filters.entry_model_id} onChange={e => set('entry_model_id', e.target.value)}>
           <option value="">All setups</option>
@@ -183,7 +201,7 @@ export default function TradeList() {
         {hasFilters && (
           <button
             className="btn-ghost !px-3 !py-2 text-xs"
-            onClick={() => setFilters({ asset: '', session_type: '', series_id: '', direction: '', pnl: '', entry_model_id: '', from: '', to: '' })}
+            onClick={() => setSearchParams({}, { replace: true })}
           >
             Clear all
           </button>
@@ -254,6 +272,9 @@ export default function TradeList() {
                 <td className="px-5 py-3 text-center">
                   <span title={t.pnl} className={`inline-flex items-center justify-center min-w-[2.25rem] text-xs font-semibold px-2.5 py-1 rounded-full ${pillCls}`}>
                     {pillText}
+                    {t.pnl === 'breakeven' && t.be_outcome && (
+                      <span className={`ml-0.5 ${t.be_outcome === 'win' ? 'text-accent' : 'text-loss'}`}>→{t.be_outcome === 'win' ? 'W' : 'L'}</span>
+                    )}
                   </span>
                 </td>
                 <td className="px-5 py-3 text-right">

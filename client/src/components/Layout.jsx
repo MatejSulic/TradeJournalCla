@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import Logo from './Logo';
+import { rememberView, viewUrl } from '../lastView';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: ChartIcon   },
@@ -15,6 +16,7 @@ const PIN_KEY = 'sidebarPinned';
 export default function Layout() {
   const { isDark, toggle } = useTheme();
   const location = useLocation();
+  rememberView(location); // sync, so the links below already point at the current filtered view
 
   // Sidebar: collapsed icon rail by default, slides out over content on hover, pin keeps it open
   const [pinned, setPinned] = useState(() => {
@@ -57,7 +59,7 @@ export default function Layout() {
           {/* Logo */}
           <div className="h-20 px-4 flex items-center flex-shrink-0">
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(viewUrl('/dashboard'))}
               className="flex items-center gap-3 rounded-lg hover:opacity-80 transition-opacity"
               title="Dashboard"
             >
@@ -70,7 +72,7 @@ export default function Layout() {
             {links.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
-                to={to}
+                to={viewUrl(to)}
                 title={open ? undefined : label}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors duration-150 ${

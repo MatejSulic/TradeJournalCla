@@ -113,7 +113,7 @@ export default function Dashboard() {
     filters.asset && { key: 'asset', label: filters.asset },
     filters.series_id && { key: 'series_id', label: seriesList.find(s => s.id == filters.series_id)?.name || 'Series' },
     filters.direction && { key: 'direction', label: filters.direction === 'long' ? 'Long' : 'Short' },
-    filters.pnl && { key: 'pnl', label: { win: 'Win', loss: 'Loss', breakeven: 'Breakeven' }[filters.pnl] },
+    filters.pnl && { key: 'pnl', label: { win: 'Win', loss: 'Loss', breakeven: 'Breakeven', be_win: 'BE → Win', be_loss: 'BE → Loss' }[filters.pnl] },
     filters.from && { key: 'from', label: `From ${filters.from}` },
     filters.to && { key: 'to', label: `To ${filters.to}` },
     dowFilter && { key: 'dow', label: DOWS.find(([v]) => v === String(dowFilter))?.[1] },
@@ -234,6 +234,8 @@ export default function Dashboard() {
                       <option value="win">Win</option>
                       <option value="loss">Loss</option>
                       <option value="breakeven">Breakeven</option>
+                      <option value="be_win">BE → Win</option>
+                      <option value="be_loss">BE → Loss</option>
                     </select>
                   </div>
                   <div>

@@ -40,6 +40,7 @@ TradeJournalCla/
 │   ├── public/               # favicon.svg (logo itself is the inline SVG in Logo.jsx)
 │   ├── src/
 │   │   ├── api.js            # All fetch calls to /api/* (+ backup download/restore helpers)
+│   │   ├── lastView.js       # Remembers last Dashboard / Trades URL (filters) for Back / Save / sidebar
 │   │   ├── App.jsx           # Routes (see below), wrapped in ThemeProvider
 │   │   ├── contexts/
 │   │   │   └── ThemeContext.jsx   # isDark + toggle, persisted in localStorage('theme'), toggles html.dark
@@ -48,7 +49,7 @@ TradeJournalCla/
 │   │   ├── components/
 │   │   │   ├── Layout.jsx        # Collapsible sidebar (icon rail → hover slide-out overlay, pin persisted in localStorage 'sidebarPinned'), SVG logo, nav, theme toggle
 │   │   │   ├── TradeCalendar.jsx # Heatmap month calendar of trades + no-trade days + weekly summary column
-│   │   │   ├── dashboard/        # StatCards (+ computeStats), PerformanceCurve, TopSetups, WinRateByDay
+│   │   │   ├── dashboard/        # StatCards (+ computeStats), PerformanceCurve, TopSetups (+ BeOutcome tab), WinRateByDay
 │   │   │   ├── Logo.jsx          # Ascend mark as inline SVG (currentColor)
 │   │   │   ├── ConfirmDialog.jsx # Modal confirm (use instead of window.confirm)
 │   │   │   ├── DatePicker.jsx    # Custom date input
@@ -80,7 +81,7 @@ TradeJournalCla/
 ### API (server)
 | Prefix | Endpoints |
 |---|---|
-| `/api/trades` | `GET /` (filters: asset, session_type, series_id, direction, pnl, entry_model_id[], from, to), `day_type` (trade default / notrade / all), `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id` — POST/PUT are multipart (screenshots) |
+| `/api/trades` | `GET /` (filters: asset, session_type, series_id, direction, pnl — also `be_win` / `be_loss`, entry_model_id[], from, to), `day_type` (trade default / notrade / all), `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id` — POST/PUT are multipart (screenshots) |
 | `/api/entry-models` | `GET /`, `POST /`, `PATCH /reorder`, `DELETE /:id` |
 | `/api/series` | `GET /`, `POST /`, `PUT /:id`, `DELETE /:id` |
 | `/api/expenses` | `GET /accounts` (incl. `total_payouts`), `POST /accounts`, `PUT /accounts/:id`, `DELETE /accounts/:id`, `POST /accounts/:id/payouts`, `DELETE /payouts/:id` |
@@ -93,7 +94,7 @@ TradeJournalCla/
 ```sql
 series              (id, name UNIQUE, description, created_at, updated_at)
 entry_models        (id, name UNIQUE, sort_order)
-trades              (id, day_type, asset, session_type, series_id, direction, pnl,
+trades              (id, day_type, asset, session_type, series_id, direction, pnl, be_outcome,
                      risk_reward, risk_amount, pnl_dollars, entry_time,
                      premarket_analysis, why_entered, no_trade_reason, faded_setups,
                      psychology, improvements, risk_management, created_at, updated_at)
@@ -110,6 +111,7 @@ prop_payouts        (id, account_id, amount, payout_date, notes, created_at)
 - `trades.direction` → `'long' | 'short'` (NULL only for no-trade days)
 - `trades.pnl` → `'win' | 'loss' | 'breakeven'` (NULL only for no-trade days)
 - table CHECK: `day_type = 'notrade'` OR asset/direction/pnl all NOT NULL
+- `trades.be_outcome` → `'win' | 'loss'` or NULL (server keeps it only when `pnl = 'breakeven'`)
 - `trades.risk_management` → `'low' | 'perfect' | 'high'` or NULL
 - `screenshots.type` → `'ltf' | 'htf' | 'daily_bias'`
 - `prop_accounts.status` → `'eval' | 'funded' | 'blown'`
@@ -133,6 +135,7 @@ prop_payouts        (id, account_id, amount, payout_date, notes, created_at)
 | Asset | single value | Fixed list: NQ, MNQ, ES, MES |
 | Direction | single value | Long / Short |
 | P&L | single value | Win / Loss / Breakeven — `pnl` text |
+| BE outcome | single value, optional | Only for Breakeven: what the trade would have become — `be_outcome` win / loss ("BE → Win / BE → Loss"). Purely informative: win rate, Net R and curves still treat it as BE |
 | P&L $ | decimal | Optional dollar result (`pnl_dollars`), shown in calendar |
 | Risk Reward Ratio | decimal | Optional, `risk_reward` REAL |
 | Risk Amount | decimal | `risk_amount` — auto-calculated in TradeForm from `pnl_dollars` and `risk_reward` |
@@ -164,7 +167,7 @@ Empty filter results render `—` (never NaN).
 
 ### Layout below stats
 Two equal columns filling the remaining viewport height (`flex-1 min-h-0`):
-- **Left:** **Performance** (`PerformanceCurve.jsx`, monotone area, **Score / R** toggle persisted in localStorage `perfMode`: score = +1 win / −1 loss, R = win +R:R / loss −1R (ends at Net R); sorted by `created_at`, current value top-right) above **Top Setups** (`TopSetups.jsx`, entry models ranked by win rate with progress bars + trade count; <50% in loss colour) and **Win Rate by Day** (`WinRateByDay.jsx`, Mon–Fri, neutral bars, best day solid accent).
+- **Left:** **Performance** (`PerformanceCurve.jsx`, monotone area, **R (default) / Score** toggle persisted in localStorage `perfMode`: score = +1 win / −1 loss, R = win +R:R / loss −1R (ends at Net R); sorted by `created_at`, current value top-right) above **Top Setups** (`TopSetups.jsx`, tabs **BE Outcome (default) / Top Setups** persisted in localStorage `setupsTab`; setups = entry models ranked by win rate with progress bars + trade count, <50% in loss colour; BE Outcome = `BeOutcome.jsx` semicircle tick gauge, % of breakevens with `be_outcome` that would be a win, + →W / →L / untagged counts) and **Win Rate by Day** (`WinRateByDay.jsx`, Mon–Fri, neutral bars, best day solid accent).
 - **Right:** **TradeCalendar** heatmap — rounded day tiles (win `accent-soft`, strong win = net R ≥ 2 or ≥2 wins & 0 losses → solid accent, loss tint, BE neutral, out-of-month hatched), weekly summary column (`W{isoWeek}`), optional $ P&L toggle, dashed NO TRADE tiles, PASS ring for winning days where a prop account was **passed** (`passed_at`). Click day → trade detail (1 trade) or popup list (more).
 
 ### Chart heights
@@ -211,6 +214,7 @@ On the **Trades** page: download ZIP (DB + uploads) / restore ZIP with confirmat
 - **`pnl` is a result, not money.** Dollar result lives in the separate optional `pnl_dollars`.
 - **Entry model multiselect uses AND logic** (`HAVING COUNT(DISTINCT entry_model_id) = N`).
 - **Never nest `<form>` elements.** TradeForm has one outer form; inner buttons use `type="button"`.
+- **Return to the filtered view.** Dashboard and TradeList keep all filters (+ TradeList `page`) in URL params; `lastView.js` remembers the last `/dashboard` / `/trades` URL in sessionStorage (`rememberView` runs in `Layout`). Sidebar links, detail Back/Delete and TradeForm Save (edit) / Cancel (new) go to `viewUrl(path)` / `lastListUrl()` — don't hardcode `navigate('/dashboard')`. Calendar month is kept in sessionStorage `calMonth`.
 - **Dashboard stats are computed client-side from `displayTrades`** (`computeStats` in `components/dashboard/StatCards.jsx`).
 - **Screenshots served statically** at `/uploads/<filename>`; Vite proxies `/api` and `/uploads` → `:3001`.
 - **Asset list is hardcoded in 3 places:** `TradeForm.jsx` (`ASSETS`), `TradeList.jsx`, `Dashboard.jsx` filter. Update all when adding assets.
