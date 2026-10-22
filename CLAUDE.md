@@ -2,7 +2,9 @@
 
 ## What this project is
 
-A personal trading journal web app called **Ascend**. The user logs trades with structured metadata (asset, direction, result, entry models, psychology, screenshots) and reviews performance through a dashboard with filterable stats, a performance curve, a win rate donut chart, and a win rate by day-of-week bar chart.
+A personal trading journal web app called **Ascend**. The user logs trades with structured metadata (asset, session type, direction, result, entry models, psychology, screenshots), reviews performance through a dashboard (filterable stats, performance curve, win rate donut, win rate by day, trade calendar), tracks prop firm account expenses & payouts, and earns XP/levels/achievements for consistent journaling.
+
+Runs fully locally — no auth, single user (`user_id = 'local'`).
 
 ---
 
@@ -11,77 +13,117 @@ A personal trading journal web app called **Ascend**. The user logs trades with 
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, Vite, React Router v6 |
-| Styling | Tailwind CSS v3 (dark theme, custom colors) |
+| Styling | Tailwind CSS v3 (`darkMode: 'class'`, CSS-variable based colors, light + dark theme) |
 | Charts | Recharts (LineChart, PieChart, BarChart) |
 | Date utils | date-fns |
 | Backend | Node.js, Express |
-| Database | SQLite via better-sqlite3 |
-| File uploads | Multer (screenshots stored in `server/uploads/`) |
+| Database | SQLite via better-sqlite3 (WAL mode, foreign keys ON) |
+| File uploads | Multer (screenshots stored in `server/uploads/`, 20 MB limit) |
+| Backup | adm-zip (DB + uploads as ZIP) |
 | Dev runner | concurrently (runs server + client together) |
-| Animation | framer-motion installed but not actively used |
+| Animation | framer-motion installed but not used |
 
-**Run dev:** `npm run dev` from root (starts both server on :3001 and client on :5173)
+**Run dev:** `npm run dev` from root (server on :3001, client on :5173).
+**First install:** `npm run install:all`. `Spustit.sh` / `Spustit.bat` = one-click launcher (checks Node, installs deps, opens browser).
 
 ---
 
 ## Project structure
 
 ```
-ClaJournalApp/
-├── package.json              # Root: runs both server and client via concurrently
+TradeJournalCla/
+├── package.json              # Root: runs server + client via concurrently
+├── Spustit.sh / Spustit.bat  # One-click launchers (Linux/macOS / Windows)
 ├── client/
+│   ├── public/               # ascend-logo.png, favicon.png, background assets
 │   ├── src/
-│   │   ├── api.js            # All fetch calls to /api/*
-│   │   ├── App.jsx           # Routes: /dashboard, /trades, /trades/new, /trades/:id, /trades/:id/edit, /series, /profile
-│   │   ├── components/
-│   │   │   ├── Layout.jsx    # Sidebar nav (Dashboard + Trades + Series + Profile) + background video
-│   │   │   ├── StatCard.jsx  # Reusable stat display card
-│   │   │   ├── XPBar.jsx     # Gamification XP progress bar
-│   │   │   └── DatePicker.jsx # Custom date input component
+│   │   ├── api.js            # All fetch calls to /api/* (+ backup download/restore helpers)
+│   │   ├── App.jsx           # Routes (see below), wrapped in ThemeProvider
+│   │   ├── contexts/
+│   │   │   └── ThemeContext.jsx   # isDark + toggle, persisted in localStorage('theme'), toggles html.dark
 │   │   ├── hooks/
-│   │   │   └── useGamification.js # XP / level / streak logic
+│   │   │   ├── useGamification.js # Fetches profile; TIER_STYLES per level tier
+│   │   │   └── useThemeColors.js  # Chart colors for current theme (tooltip, grid, colorMain, colorNeg…)
+│   │   ├── components/
+│   │   │   ├── Layout.jsx        # Sidebar: logo, nav, theme toggle, XP summary (level, streak, XPBar)
+│   │   │   ├── TradeCalendar.jsx # Month calendar of trades + weekly summary column
+│   │   │   ├── StatCard.jsx      # Reusable stat display card
+│   │   │   ├── ConfirmDialog.jsx # Modal confirm (use instead of window.confirm)
+│   │   │   ├── DatePicker.jsx    # Custom date input
+│   │   │   ├── XPBar.jsx / LevelBadge.jsx / XPToast.jsx  # Gamification UI
 │   │   └── pages/
-│   │       ├── Dashboard.jsx   # Collapsible filters + stat cards + 3-chart layout + recent trades
-│   │       ├── TradeForm.jsx   # Create/edit trade form (inline entry model creation)
+│   │       ├── Dashboard.jsx   # Collapsible filters + 5 stat cards + charts + calendar
+│   │       ├── TradeForm.jsx   # Create/edit trade (inline entry model creation)
 │   │       ├── TradeDetail.jsx # Read-only trade view with screenshots + lightbox
-│   │       ├── TradeList.jsx   # Filterable + paginated trade table (25/page), CSV export & import
-│   │       ├── Series.jsx      # Trade series management
-│   │       └── Profile.jsx     # User profile + gamification stats
-│   ├── tailwind.config.js    # Custom colors: surface, profit, loss, accent
-│   └── index.css             # Global component classes: .btn-*, .card, .input, .label
+│   │       ├── TradeList.jsx   # Filterable + paginated table (25/page), backup download/restore
+│   │       ├── Series.jsx      # Trade series CRUD
+│   │       ├── Expenses.jsx    # Prop firm accounts + payouts, CSV export
+│   │       ├── Profile.jsx     # Level, XP, achievements grid
+│   │       └── Settings.jsx    # UNUSED — not routed (legacy entry-model manager)
+│   ├── tailwind.config.js
+│   └── index.css             # Theme CSS variables + .btn-*, .card, .input, .label
 ├── server/
-│   ├── index.js              # Express app entry, mounts routes, serves /uploads static
-│   ├── db.js                 # SQLite init + schema (DROP-safe on reset)
-│   ├── data/journal.db       # SQLite database file (auto-created)
-│   ├── uploads/              # Screenshot files (served at /uploads/<filename>)
+│   ├── index.js              # Express entry, mounts routes, serves /uploads static
+│   ├── db.js                 # SQLite init, schema, idempotent migrations, achievement seeds, reinitDb()
+│   ├── gamification.js       # XP, levels, streaks, achievements logic
+│   ├── data/journal.db       # SQLite DB (committed to git as backup; -wal/-shm ignored)
+│   ├── uploads/              # Screenshot files (gitignored)
 │   └── routes/
-│       ├── trades.js         # CRUD + /stats + /equity + /import endpoints
-│       └── entryModels.js    # GET / POST / DELETE for entry model tags
+│       ├── trades.js         # CRUD + /stats + /equity
+│       ├── entryModels.js    # GET / POST / PATCH /reorder / DELETE
+│       ├── series.js         # CRUD
+│       ├── expenses.js       # Prop accounts + payouts
+│       ├── gamification.js   # GET /profile, GET /levels
+│       └── backup.js         # GET = download ZIP, POST = restore ZIP
 ```
+
+### Routes (client)
+`/dashboard`, `/trades`, `/trades/new`, `/trades/:id`, `/trades/:id/edit`, `/series`, `/expenses`, `/profile` (`/` → `/dashboard`).
+
+### API (server)
+| Prefix | Endpoints |
+|---|---|
+| `/api/trades` | `GET /` (filters: asset, session_type, series_id, direction, pnl, entry_model_id[], from, to), `GET /stats`, `GET /equity`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id` — POST/PUT are multipart (screenshots) |
+| `/api/entry-models` | `GET /`, `POST /`, `PATCH /reorder`, `DELETE /:id` |
+| `/api/series` | `GET /`, `POST /`, `PUT /:id`, `DELETE /:id` |
+| `/api/expenses` | `GET /accounts` (incl. `total_payouts`), `POST /accounts`, `PUT /accounts/:id`, `DELETE /accounts/:id`, `POST /accounts/:id/payouts`, `DELETE /payouts/:id` |
+| `/api/gamification` | `GET /profile`, `GET /levels` |
+| `/api/backup` | `GET /` (ZIP download), `POST /` (field `backup`, restores DB + uploads, calls `reinitDb()`) |
 
 ---
 
 ## Database schema
 
 ```sql
+series              (id, name UNIQUE, description, created_at, updated_at)
 entry_models        (id, name UNIQUE, sort_order)
-trades              (id, asset, direction, pnl, risk_reward, risk_amount,
-                     entry_time, why_entered, psychology, improvements,
+trades              (id, asset, session_type, series_id, direction, pnl,
+                     risk_reward, risk_amount, pnl_dollars, entry_time,
+                     why_entered, psychology, improvements,
                      risk_management, created_at, updated_at)
-trade_entry_models  (trade_id, entry_model_id)   -- junction table, enables multiselect
+trade_entry_models  (trade_id, entry_model_id)   -- junction table, multiselect
 screenshots         (id, trade_id, type, filename, original_name, created_at)
+prop_accounts       (id, firm_name, account_size, purchase_price, status,
+                     purchased_at, passed_at, blown_at, notes, created_at, updated_at)
+prop_payouts        (id, account_id, amount, payout_date, notes, created_at)
+player_profile      (user_id, xp, level, streak_days, last_trade_date, ...)
+achievements        (key, name, description, icon, xp_reward)   -- seeded in db.js
+player_achievements (id, user_id, achievement_key, trade_id, unlocked_at)
+xp_log              (id, user_id, trade_id, source, amount, created_at)
 ```
 
 **Enums enforced by CHECK constraints:**
 - `trades.direction` → `'long' | 'short'`
 - `trades.pnl` → `'win' | 'loss' | 'breakeven'`
-- `trades.risk_management` → `'low' | 'perfect' | 'high'`
+- `trades.risk_management` → `'low' | 'perfect' | 'high'` or NULL
 - `screenshots.type` → `'ltf' | 'htf' | 'daily_bias'`
+- `prop_accounts.status` → `'eval' | 'funded' | 'blown'`
 
-**If you change any CHECK constraint**, delete the DB file and restart:
-```bash
-rm server/data/journal.db*
-```
+`trades.session_type` is `'live' | 'backtest'` (default `'live'`, no CHECK).
+
+**Migrations:** new columns are added in `runSchema()` via `try { ALTER TABLE … ADD COLUMN … } catch {}` — follow the same pattern so existing DBs (and restored backups) upgrade automatically. Legacy `"NQ Backtest"`-style assets are migrated to `asset = 'NQ', session_type = 'backtest'`.
+
+**Changing a CHECK constraint** can't be done via ALTER. Either write a table-rebuild migration, or (losing data) delete the DB: `rm server/data/journal.db*`. The DB is real user data — **make a backup first**.
 
 ---
 
@@ -89,102 +131,125 @@ rm server/data/journal.db*
 
 | Field | Type | Notes |
 |---|---|---|
-| Daily Bias | single tag | Stored as screenshot (`type = 'daily_bias'`), not text |
-| Asset | single value | Select from fixed list: NQ, MNQ, ES, MES, NQ Backtest, MNQ Backtest, ES Backtest, MES Backtest |
-| P&L | single value | Win / Loss / Breakeven — stored as text, NOT a dollar amount |
-| Risk Reward Ratio | decimal | Optional, stored as REAL |
+| Session type | single value | Live / Backtest (`session_type`) |
+| Series | optional FK | `series_id` → `series`, `ON DELETE SET NULL` |
+| Asset | single value | Fixed list: NQ, MNQ, ES, MES |
 | Direction | single value | Long / Short |
-| Entry Model | MULTISELECT | Multiple tags via `trade_entry_models` junction table |
-| Why did I enter? | bullet list | Free text textarea (`why_entered`) |
-| Psyche | bullet list | Emotional state (`psychology`) |
-| How to improve? | bullet list | Actionable takeaways (`improvements`) |
+| P&L | single value | Win / Loss / Breakeven — `pnl` text |
+| P&L $ | decimal | Optional dollar result (`pnl_dollars`), shown in calendar |
+| Risk Reward Ratio | decimal | Optional, `risk_reward` REAL |
+| Risk Amount | decimal | `risk_amount` — auto-calculated in TradeForm from `pnl_dollars` and `risk_reward` |
+| Entry Model | MULTISELECT | `trade_entry_models` junction table |
+| Why did I enter? / Psyche / How to improve? | free text | `why_entered`, `psychology`, `improvements` |
 | Risk Management | single tag | Low / Perfect / High |
-| Time of Entry | datetime | `entry_time` TEXT (ISO format) |
-| Day of the week | single value | Derived from `entry_time` via date-fns, not stored |
+| Time of Entry | datetime | `entry_time` TEXT (ISO) |
+| Screenshots | files | LTF (≤10), HTF (≤10), Daily Bias (≤5) — `screenshots.type` |
+| Day of the week | derived | From `entry_time` via date-fns, not stored |
 
 ---
 
 ## Dashboard — current state
 
-### Stat cards (7 total, `lg:grid-cols-7`)
-Total Trades · Avg Trades/Week · Win Rate · Avg R:R · Wins · Losses · Breakevens
-
-**Avg Trades/Week** counts only ISO weeks that have at least one trade (no empty-week dilution).
-
 ### Filters (collapsible card)
-- Card uses `!p-0 overflow-hidden`, toggle button has `p-5`
-- Collapsed state shows active filter summary chips
-- Expand/collapse animation via CSS `grid-template-rows: 0fr ↔ 1fr` with `transition duration-300`
-- **DOW filter** (Mon–Fri) is applied **client-side** — creates `displayTrades` from server-fetched `trades`
-- All stats, charts, and the recent trades table use `displayTrades`, not `trades` directly
+- Session (All / Live / Backtest, default **Live**), Asset, Series, Direction, Result, Entry models (multiselect, AND logic, drag-to-reorder → `PATCH /entry-models/reorder`), date range, Day of week.
+- All filters live in **URL search params**.
+- Card uses `!p-0 overflow-hidden`, toggle button has `p-5`; collapsed state shows active filter chips.
+- Expand/collapse via CSS `grid-template-rows: 0fr ↔ 1fr`, `transition duration-300`.
+- **DOW filter** is client-side → `displayTrades`. All stats, charts and the calendar use `displayTrades`.
 
-### Charts layout (`lg:grid-cols-3`)
-- **Left (col-span-2):** Performance Curve — fixed `height={457}` — line chart, equity score
-- **Right column (flex-col gap-4):**
-  - **Win Rate donut** — fixed `height={220}`, `innerRadius={62}`, `outerRadius={88}`, win rate % centered via SVG `<text>`, no legend
-  - **Win Rate by Day** — fixed `height={189}`, BarChart Mon–Fri, bars colored green (≥50%) or purple (<50%), `LabelList` labels in `COLOR_MAIN`
+### Stat cards (5, `grid-cols-5`)
+1. **Total Trades** + avg trades/week (only ISO weeks with ≥1 trade)
+2. **Win Rate** (wins / (wins+losses)) + **net R** (sum of win R:R − number of losses)
+3. **Avg R:R** (ignores null/0)
+4. **Avg $ Risk** (`risk_amount`)
+5. **Results** — `xW xL xBE`
 
-**Chart height rule:** Always use explicit pixel heights on `ResponsiveContainer`. `height="100%"` does NOT work without a pixel-height parent — avoids invisible charts.
+### Layout below stats
+Two equal columns (`gridTemplateColumns: '1fr 1fr'`), filling remaining viewport height (`flex-1 min-h-0`):
+- **Left** — `grid-cols-3`:
+  - **Performance Curve** (`col-span-2`) — +1 win / −1 loss score, sorted by `created_at`.
+  - Right stack (`flex-col gap-4`): **Win Rate donut** (`height={220}`, `innerRadius={62}`, `outerRadius={88}`, % centered via SVG `<text>`, no legend) and **Win Rate by Day** (Mon–Fri, bars `colorMain` ≥50% / `colorNeg` <50%, `LabelList` in `colorMain`, dashed 50% reference line).
+- **Right** — **TradeCalendar**: month grid (Sun→Sat) + weekly summary column (`W{isoWeek}`), day cell colored by result, optional $ P&L (toggle), hatched pattern for empty days, special highlight for winning days where a prop account was **passed** (`passed_at` from Expenses). Click day → trade detail (1 trade) or popup list (more).
 
-**Visual alignment:** Left card total height = right column total height (calculated: 2 × 286px cards + 16px gap = 588px; left = 457 + 80px overhead = 537... adjust if re-tuning).
+### Chart heights
+Performance Curve and Win Rate by Day use `height="100%"` — this works **only** because every ancestor has a resolved height (`flex-1 min-h-0` chain down from the page). If you break that chain, the chart becomes invisible; fall back to fixed pixel heights. The donut uses fixed `height={220}`.
 
-### Tooltip styling (all 3 charts)
+### Chart colors & tooltips
+Always take colors from `useThemeColors()` (theme-aware), never hardcode:
 ```jsx
-contentStyle={{ background: '#111111', border: '1px solid #2a2a2a', borderRadius: 12, fontSize: 12 }}
-labelStyle={{ color: '#6b7280' }}
-itemStyle={{ color: '#fff' }}
+const colors = useThemeColors();
+contentStyle={{ background: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: 12, fontSize: 12 }}
+labelStyle={{ color: colors.labelColor }}
+itemStyle={{ color: isDark ? '#fff' : '#1e293b' }}   // required, otherwise Recharts renders black text
 ```
-Use `itemStyle={{ color: '#fff' }}` — without it Recharts renders item text in black.
+(Existing code detects dark via `colors.tick === '#4b5563'`.)
+
+---
+
+## Expenses (prop firm accounts)
+
+- Account: firm, size, purchase price, status `eval → funded → blown`, `purchased_at`, `passed_at` (set when funded/blown), `blown_at` (when blown), notes.
+- Payouts per account (expandable list, add/delete).
+- Summary: total spent, total payouts, net P&L, active accounts. CSV export of accounts (client-side).
+- `passed_at` dates feed the Dashboard calendar highlight.
+
+## Gamification
+
+Server-side (`server/gamification.js`): XP awarded on trade create (`awardXP`), recalculated on edit (`recalcNoteXP`), revoked on delete (`revokeXP`). Levels with tiers (`TIER_STYLES` in `useGamification.js`), daily logging streak with multiplier, 10 seeded achievements (`db.js`). Sidebar refetches profile on every navigation.
+
+## Backup & restore
+
+On the **Trades** page: download ZIP (DB + uploads) / restore ZIP with confirmation banner. Restore swaps the DB via `reinitDb()` — `db` is exported as a Proxy so all route modules keep working after the swap. **There is no CSV export/import of trades anymore** (removed in favour of ZIP backup).
 
 ---
 
 ## Key rules
 
-- **No Settings page.** Entry models are created inline inside TradeForm.
-- **No dollar PnL.** The `pnl` field is `win | loss | breakeven` only.
-- **Entry model multiselect uses AND logic.** Dashboard filters with `HAVING COUNT(DISTINCT entry_model_id) = N`.
-- **Never nest `<form>` elements.** TradeForm has one outer form; model tag buttons use `type="button"`.
-- **Stats computed client-side from `displayTrades`** (after DOW filter). Do not move stat computation to the server.
-- **Screenshots served statically** at `/uploads/<filename>`. Client proxies `/uploads` → `:3001` in dev.
-- **Asset list is hardcoded** in `TradeForm.jsx` and `TradeList.jsx`. Update both if adding assets.
+- **No Settings page in navigation.** Entry models are created inline in TradeForm and reordered by drag in Dashboard filters. `Settings.jsx` is dead code.
+- **`pnl` is a result, not money.** Dollar result lives in the separate optional `pnl_dollars`.
+- **Entry model multiselect uses AND logic** (`HAVING COUNT(DISTINCT entry_model_id) = N`).
+- **Never nest `<form>` elements.** TradeForm has one outer form; inner buttons use `type="button"`.
+- **Dashboard stats are computed client-side from `displayTrades`.** `/trades/stats` and `/trades/equity` exist on the server but the Dashboard does not use them.
+- **Screenshots served statically** at `/uploads/<filename>`; Vite proxies `/api` and `/uploads` → `:3001`.
+- **Asset list is hardcoded in 3 places:** `TradeForm.jsx` (`ASSETS`), `TradeList.jsx`, `Dashboard.jsx` filter. Update all when adding assets.
+- **Use `ConfirmDialog`** for destructive actions, not `window.confirm`.
+- **Every new UI must work in both light and dark theme** (`dark:` variants, theme CSS variables, `useThemeColors`).
 
-### Tailwind color conventions
-- `text-profit` = sky-400 (wins, long direction) — in CSS/Tailwind
-- `text-loss` = orange-400 (losses, short direction) — in CSS/Tailwind
-- `text-accent` = indigo-400 (UI highlights)
-- `bg-surface-*` = dark background layers
-- **`COLOR_MAIN = '#c6f135'`** — lime/yellow-green, used in charts for wins, labels, highlights (user calls it "limetková")
-- **`COLOR_NEG = '#7c3aed'`** — purple, used in charts for losses
+### Colors
+Defined as CSS variables in `index.css` (`:root` = light, `html.dark` = dark) and mapped in `tailwind.config.js`:
+
+| Token | Dark | Light |
+|---|---|---|
+| `profit` / `accent` | `#c6f135` (198 241 53) | `#65a30d` |
+| `loss` | `#7c3aed` purple | `#7c3aed` |
+| `surface` / `card` / `raised` / `border` | 10 / 17 / 26 / 42 gray | slate-100 / white / slate-200 / slate-300 |
+
+- **`colorMain`** — `#c6f135` dark / `#65a30d` light — "limetková", wins & highlights in charts.
+- **`colorNeg`** — `#7c3aed` purple — losses in charts.
+- Negative net R text uses orange `#fb923c`.
 
 ### `.card` class
-`bg-surface-card border border-surface-border rounded-2xl p-5` — when making a button span the full card width (e.g. collapsible header), use `!p-0` on the card and add `p-5` to the inner button instead.
-
----
-
-## CSV export & import
-
-- **Export** — client-side, from currently filtered trades. `entry_models` joined as `name1;name2`.
-- **Import** — `POST /api/trades/import`, JSON array, runs in `db.transaction()`. Returns `{ imported: N, errors: [] }`.
-- **Import has a confirmation step** — banner shows row count, requires explicit click before DB write.
-- Screenshots not included in CSV.
+`bg-surface-card border border-surface-border rounded-2xl p-5` — for a full-width clickable header use `!p-0` on the card and `p-5` on the inner button.
 
 ---
 
 ## User preferences
 
-- **Přímá implementace** — small changes go straight to code, no planning needed. Use plan mode only for multi-file or architecturally complex tasks.
-- **Barvy:** Prefer `COLOR_MAIN` (#c6f135, "limetková") for positive/highlight elements in charts. Don't use generic greens (#4ade80 etc.) — use the app's own palette.
-- **Výšky grafů:** Always fixed pixel values. Recalculate manually when adding/removing charts to maintain visual alignment.
-- **Animace:** Page transition animations (framer-motion) were tried and reverted — user did not like them. Collapsible section animations (CSS grid-rows trick) are fine.
-- **Tooltip:** All Recharts tooltips must have `itemStyle={{ color: '#fff' }}` to avoid unreadable black text on dark background.
-- **Datumy v tabulkách:** Full date including year — `format(parseISO(str), 'MMM d, yyyy HH:mm')`.
+- **Přímá implementace** — small changes go straight to code, no planning needed. Plan mode only for multi-file or architecturally complex tasks.
+- **Barvy:** Use the app palette (`colorMain` "limetková", `colorNeg` purple). No generic greens (#4ade80 etc.).
+- **Výšky grafů:** Prefer fixed pixel heights; if using `height="100%"`, make sure the parent chain has a real height. Re-check visual alignment when adding/removing charts.
+- **Animace:** framer-motion page transitions were tried and reverted — user didn't like them. CSS grid-rows collapsible animations are fine.
+- **Tooltip:** All Recharts tooltips must set `itemStyle` color (white in dark, slate in light).
+- **Datumy v tabulkách:** Full date incl. year — `format(parseISO(str), 'MMM d, yyyy HH:mm')`.
+- UI texts are in English (a few Czech tooltips/comments exist).
 
 ---
 
 ## Current goals / known gaps
 
-- **Daily Bias** is screenshot-only (no text tag). Could add Bullish / Bearish / Neutral text field.
-- **Risk Amount** field exists in the form but not shown in Dashboard stats.
-- **TradeList setup filter** is single-select. Could upgrade to multiselect (same as Dashboard).
-- **No PDF export** yet.
-- **framer-motion** is installed in `client/` but not used — available if a specific micro-animation is wanted.
+- **Daily Bias** is screenshot-only — could add a Bullish / Bearish / Neutral text tag.
+- **TradeList entry model filter** is single-select — could become multiselect like Dashboard.
+- **CSV export/import of trades** no longer exists — could be re-added if needed.
+- **No PDF export.**
+- `Settings.jsx` and unused `/trades/stats`, `/trades/equity` endpoints could be removed.
+- `trades.session_type` has no CHECK constraint.

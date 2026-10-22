@@ -29,7 +29,7 @@ Built as a learning project to practice full-stack development with React + Node
 | Side | Stack |
 |------|-------|
 | Frontend | React 18, Vite, React Router v6 |
-| Styling | Tailwind CSS v3 (custom dark theme) |
+| Styling | Tailwind CSS v3 (light + dark theme) |
 | Charts | Recharts (line, pie, bar) |
 | Backend | Node.js + Express |
 | Database | SQLite via `better-sqlite3` |
@@ -41,19 +41,22 @@ Built as a learning project to practice full-stack development with React + Node
 
 ## Features
 
-- **Trade logging** — asset, direction (long/short), result (win/loss/breakeven), R:R ratio, risk amount, entry time, session type (live/backtest)
-- **Entry models** — create custom setup tags (e.g. "Break & Retest", "FVG Fill") and attach multiple to each trade
+- **Trade logging** — asset, session type (live/backtest), direction (long/short), result (win/loss/breakeven), optional $ P&L, R:R ratio, risk amount (auto-calculated), entry time, risk management rating
+- **Entry models** — create custom setup tags (e.g. "Break & Retest", "FVG Fill") inline in the form and attach multiple to each trade; drag to reorder
 - **Trade notes** — three text fields per trade: why you entered, psychological state, and what to improve
 - **Screenshot uploads** — attach LTF chart, HTF chart, and daily bias screenshots per trade; view them in a lightbox
 - **Trade series** — group related trades into named series for campaign-style analysis
-- **Dashboard stats** — 7 cards: total trades, win rate, avg R:R, wins, losses, breakevens, avg trades/week
+- **Dashboard stats** — total trades (+ avg per week), win rate (+ net R), avg R:R, avg $ risk, W/L/BE results
 - **Performance curve** — equity score line chart showing progression over time
 - **Win rate donut** — at-a-glance win/loss/breakeven breakdown
 - **Win rate by day** — bar chart showing which days of the week you perform best on
-- **Collapsible filters** — filter by asset, direction, PnL, entry model, date range, session type, series, and day of week
-- **Trade list** — paginated (25/page), filterable table with full CSV export and import
+- **Trade calendar** — monthly view with daily results, $ P&L, weekly summaries and highlighted days when a prop account was passed
+- **Collapsible filters** — filter by session type, asset, series, direction, result, entry models (AND), date range and day of week; filters are kept in the URL
+- **Trade list** — paginated (25/page), filterable table
+- **Expenses** — track prop firm accounts (eval / funded / blown), purchase costs and payouts, net P&L, CSV export
 - **Gamification** — XP system, levels (Bronze → Legend), daily logging streak, 10 unlockable achievements
-- **Backup & restore** — download your entire database + screenshots as a ZIP, restore it anytime
+- **Backup & restore** — download your entire database + screenshots as a ZIP, restore it anytime (on the Trades page)
+- **Light & dark mode** — toggle in the sidebar, remembered per browser
 
 ---
 
@@ -74,6 +77,10 @@ Built as a learning project to practice full-stack development with React + Node
 ---
 
 ## Getting Started
+
+### Quick start
+
+Run `Spustit.sh` (Linux/macOS) or `Spustit.bat` (Windows) — it checks Node.js, installs dependencies on first run, starts the app and opens the browser.
 
 ### Prerequisites
 
@@ -98,7 +105,7 @@ This starts:
 - **Backend** on `http://localhost:3001`
 - **Frontend** on `http://localhost:5173`
 
-Open `http://localhost:5173` in your browser. The SQLite database is auto-created at `server/data/journal.db` on first run.
+Open `http://localhost:5173` in your browser. The SQLite database is auto-created at `server/data/journal.db` on first run (migrations run automatically on startup).
 
 ### Build for production
 
@@ -116,37 +123,44 @@ The static output lands in `client/dist/`. Serve it with any static host alongsi
 ```
 ClaJournalApp/
 ├── package.json              # Root — runs server + client via concurrently
+├── Spustit.sh / Spustit.bat  # One-click launchers
 │
 ├── client/                   # React frontend (Vite)
 │   └── src/
 │       ├── api.js            # All fetch calls to /api/*
 │       ├── App.jsx           # Route definitions
+│       ├── contexts/
+│       │   └── ThemeContext.jsx    # Light / dark mode
 │       ├── components/
-│       │   ├── Layout.jsx    # Sidebar nav + background
-│       │   ├── StatCard.jsx  # Reusable stat display card
-│       │   ├── XPBar.jsx     # XP progress bar
-│       │   ├── LevelBadge.jsx
+│       │   ├── Layout.jsx          # Sidebar nav, theme toggle, XP summary
+│       │   ├── TradeCalendar.jsx   # Monthly trade calendar
+│       │   ├── StatCard.jsx        # Reusable stat display card
+│       │   ├── ConfirmDialog.jsx   # Confirmation modal
+│       │   ├── XPBar.jsx / LevelBadge.jsx / XPToast.jsx
 │       │   └── DatePicker.jsx
 │       ├── hooks/
-│       │   └── useGamification.js  # XP / level / streak logic
+│       │   ├── useGamification.js  # XP / level / streak data
+│       │   └── useThemeColors.js   # Theme-aware chart colors
 │       └── pages/
-│           ├── Dashboard.jsx   # Stats, charts, filters
+│           ├── Dashboard.jsx   # Stats, charts, calendar, filters
 │           ├── TradeForm.jsx   # Create / edit trade
 │           ├── TradeDetail.jsx # Read-only trade view + lightbox
-│           ├── TradeList.jsx   # Paginated table, CSV import/export
+│           ├── TradeList.jsx   # Paginated table, backup / restore
 │           ├── Series.jsx      # Trade series management
+│           ├── Expenses.jsx    # Prop firm accounts & payouts
 │           └── Profile.jsx     # Gamification stats + achievements
 │
 └── server/                   # Express backend
     ├── index.js              # App entry, mounts routes
     ├── db.js                 # SQLite schema + migrations + achievement seeding
-    ├── gamification.js       # XP award logic
-    ├── data/journal.db       # SQLite DB (auto-created, gitignored)
+    ├── gamification.js       # XP / level / streak / achievement logic
+    ├── data/journal.db       # SQLite DB (auto-created)
     ├── uploads/              # Uploaded screenshots (gitignored)
     └── routes/
-        ├── trades.js         # CRUD, /stats, /equity, CSV import
-        ├── entryModels.js    # Entry model tag management
+        ├── trades.js         # Trade CRUD, /stats, /equity
+        ├── entryModels.js    # Entry model tags (+ reorder)
         ├── series.js         # Trade series CRUD
+        ├── expenses.js       # Prop accounts + payouts
         ├── gamification.js   # Profile + level endpoints
         └── backup.js         # ZIP backup download + restore
 ```
@@ -159,11 +173,14 @@ ClaJournalApp/
 series              (id, name, description, created_at, updated_at)
 entry_models        (id, name UNIQUE, sort_order)
 trades              (id, asset, session_type, series_id, direction, pnl,
-                     risk_reward, risk_amount, entry_time,
+                     risk_reward, risk_amount, pnl_dollars, entry_time,
                      why_entered, psychology, improvements,
                      risk_management, created_at, updated_at)
 trade_entry_models  (trade_id, entry_model_id)   -- junction table, multiselect
 screenshots         (id, trade_id, type, filename, original_name, created_at)
+prop_accounts       (id, firm_name, account_size, purchase_price, status,
+                     purchased_at, passed_at, blown_at, notes, ...)
+prop_payouts        (id, account_id, amount, payout_date, notes, created_at)
 player_profile      (user_id, xp, level, streak_days, last_trade_date, ...)
 achievements        (key, name, description, icon, xp_reward)
 player_achievements (user_id, achievement_key, trade_id, unlocked_at)
