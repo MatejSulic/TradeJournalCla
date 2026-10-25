@@ -34,9 +34,12 @@ for s in -wal -shm; do [[ -f "$DB_SRC$s" ]] && cp "$DB_SRC$s" "$T/data/journal.d
 fail() { echo "FAIL: $*"; echo "--- server log ---"; cat "$T/server.log" 2>/dev/null || true; exit 1; }
 ok() { echo "ok: $*"; }
 
-# start_server [VAR=value ...] -> boots the scratch server with the given env (keys always blank)
+# start_server [VAR=value ...] -> boots the scratch server with the given env. The caller's AI vars
+# are dropped (env -u) and keys are set blank so neither the shell nor a stray .env can enable a real provider.
+AI_VARS=(GEMINI_API_KEY ANTHROPIC_API_KEY GEMINI_MODEL ANTHROPIC_MODEL AI_PROVIDER MOCK_FAIL MOCK_DELAY_MS DB_PATH UPLOADS_DIR)
+UNSET=(); for v in "${AI_VARS[@]}"; do UNSET+=(-u "$v"); done
 start_server() {
-  (cd "$T" && exec env PORT="$PORT" GEMINI_API_KEY= ANTHROPIC_API_KEY= "$@" node index.js >>"$T/server.log" 2>&1) &
+  (cd "$T" && exec env "${UNSET[@]}" PORT="$PORT" GEMINI_API_KEY= ANTHROPIC_API_KEY= "$@" node index.js >>"$T/server.log" 2>&1) &
   PID=$!
   for i in $(seq 1 50); do
     curl -sf "$B/api/trades" >/dev/null 2>&1 && return 0
@@ -236,8 +239,37 @@ else
   ok "client disconnect -> nothing saved, conversation not left busy (retry -> done)"
 fi
 
+# Follow-ups use the model stored on the conversation, not today's env model
+sqlq() { (cd "$T" && node -e "const D=require('better-sqlite3');const r=new D('data/journal.db').prepare(process.argv[1]).run(...process.argv.slice(2));" "$@"); }
+sqlq "UPDATE ai_conversations SET model = 'mock-pinned' WHERE id = ?" "$CONV"
+sse "$UP" '{"content":"which model?"}'
+[[ "$CODE" == 200 && "$(nmatch "$SSE" '"type":"done"')" == 1 ]] || fail "follow-up with pinned model -> $CODE $SSE"
+grep -q 'model mock-pinned' <<<"$SSE" || fail "follow-up did not use the stored model: $SSE"
+sqlq "UPDATE ai_conversations SET model = 'mock' WHERE id = ?" "$CONV"
+ok "follow-up uses the conversation's stored model"
+
+# Cross-origin writes are refused (no CORS + same-origin guard); same-origin and curl are fine
+req POST "/api/ai/conversations/$CONV/messages" -H 'Origin: https://evil.example' -H 'Sec-Fetch-Site: cross-site' \
+  -H 'Content-Type: application/x-www-form-urlencoded' -d 'content=spend+my+quota'
+[[ "$CODE" == 403 ]] || fail "cross-site POST -> $CODE $BODY (expected 403)"
+req POST "/api/ai/conversations/$CONV/messages" -H 'Origin: https://evil.example' "${JH[@]}" -d '{"content":"x"}'
+[[ "$CODE" == 403 ]] || fail "foreign Origin POST -> $CODE $BODY (expected 403)"
+hdr="$(curl -s -o /dev/null -D - -X OPTIONS -H 'Origin: https://evil.example' -H 'Access-Control-Request-Method: POST' "$B/api/ai/status")"
+grep -qi '^access-control-allow-origin' <<<"$hdr" && fail "CORS header still sent: $hdr"
+req GET "/api/ai/conversations/$CONV"
+[[ "$(json "$BODY" "!j.messages.some(m => m.content === 'spend my quota' || m.content === 'x')")" == true ]] \
+  || fail "cross-origin message was stored: $BODY"
+req GET /api/ai/status -H 'Origin: https://evil.example'
+[[ "$CODE" == 200 ]] || fail "GET with foreign Origin -> $CODE"
+ok "cross-origin POST -> 403 (nothing stored), no Access-Control-Allow-Origin header"
+
+req GET "/api/ai/conversations/$CONV"; UPD_BEFORE=$(json "$BODY" 'j.updated_at')
+sqlq "UPDATE ai_conversations SET updated_at = '2000-01-01 00:00:00' WHERE id = ?" "$CONV"
 req PATCH "/api/ai/conversations/$CONV" "${JH[@]}" -d '{"title":"Renamed"}'
 [[ "$CODE" == 200 ]] || fail "PATCH title -> $CODE $BODY"
+[[ "$(json "$BODY" "j.updated_at === '2000-01-01 00:00:00'")" == true ]] || fail "rename bumped updated_at: $BODY"
+sqlq "UPDATE ai_conversations SET updated_at = ? WHERE id = ?" "$UPD_BEFORE" "$CONV"
+ok "rename does not bump updated_at"
 req PATCH "/api/ai/conversations/$CONV" "${JH[@]}" -d '{"title":"  "}'
 [[ "$CODE" == 400 ]] || fail "PATCH empty title -> $CODE $BODY (expected 400)"
 req GET "/api/ai/conversations/$CONV"
