@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "node --watch index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test test/"
   },
   "dependencies": {
     "adm-zip": "^0.5.17",
