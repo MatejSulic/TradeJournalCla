@@ -111,6 +111,8 @@ function NewAnalysis() {
   const [seriesList, setSeriesList] = useState([]);
   const [trades, setTrades] = useState([]);
   const [allNoTrade, setAllNoTrade] = useState([]);
+  const [noTradeLoaded, setNoTradeLoaded] = useState(false);
+  const [tradesFor, setTradesFor] = useState(null); // apiFilters key the `trades` list was loaded for
   const [loadError, setLoadError] = useState('');
   const [excluded, setExcluded] = useState(() => new Set()); // unchecked ids, kept across filter changes
   const [question, setQuestion] = useState('');
@@ -128,14 +130,17 @@ function NewAnalysis() {
   useEffect(() => {
     getEntryModels().then(setModels).catch(() => {});
     getSeries().then(setSeriesList).catch(() => {});
-    getTrades({ day_type: 'notrade' }).then(setAllNoTrade).catch(e => setLoadError(e.message));
+    getTrades({ day_type: 'notrade' })
+      .then(list => { setAllNoTrade(list); setNoTradeLoaded(true); })
+      .catch(e => setLoadError(e.message));
   }, []);
 
   const apiKey = JSON.stringify(apiFilters);
   useEffect(() => {
     let cancelled = false;
+    const key = apiKey;
     getTrades(apiFilters)
-      .then(list => { if (!cancelled) { setTrades(list); setLoadError(''); } })
+      .then(list => { if (!cancelled) { setTrades(list); setTradesFor(key); setLoadError(''); } })
       .catch(e => { if (!cancelled) setLoadError(e.message); });
     return () => { cancelled = true; };
   }, [apiKey]);
@@ -158,6 +163,9 @@ function NewAnalysis() {
   const tradeIds = useMemo(() => visibleTrades.filter(t => !excluded.has(t.id)).map(t => t.id), [visibleTrades, excluded]);
   const notradeIds = useMemo(() => visibleNoTrade.filter(t => !excluded.has(t.id)).map(t => t.id), [visibleNoTrade, excluded]);
   const selectedCount = tradeIds.length + notradeIds.length;
+  // Until the list for the CURRENT filters has loaded, the visible rows are stale: asking would send
+  // old ids with the new filter snapshot, so Ask is disabled and the list dimmed.
+  const listReady = tradesFor === apiKey && noTradeLoaded;
 
   // Debounced token estimate of the current selection
   const selKey = `${tradeIds.join(',')}|${notradeIds.join(',')}`;
@@ -184,7 +192,7 @@ function NewAnalysis() {
 
   const ask = async () => {
     const q = question.trim();
-    if (!q || selectedCount === 0 || submitting) return;
+    if (!q || selectedCount === 0 || submitting || !listReady) return;
     setSubmitting(true);
     setError('');
     try {
@@ -234,12 +242,16 @@ function NewAnalysis() {
             )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0 text-xs font-medium">
-            <button type="button" onClick={onAll} className="px-2 py-1 rounded-lg text-accent hover:bg-accent-soft">Select all</button>
-            <button type="button" onClick={onNone} className="px-2 py-1 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white">None</button>
+            <button type="button" onClick={onAll} disabled={!listReady} className="disabled:opacity-40 disabled:pointer-events-none px-2 py-1 rounded-lg text-accent hover:bg-accent-soft">Select all</button>
+            <button type="button" onClick={onNone} disabled={!listReady} className="disabled:opacity-40 disabled:pointer-events-none px-2 py-1 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white">None</button>
           </div>
         </div>
         {loadError && <div className="mx-2 mb-2 text-sm px-4 py-2.5 rounded-2xl bg-loss/10 text-loss flex-shrink-0">{loadError}</div>}
-        <div className="flex-1 min-h-0">
+        <div
+          className={`flex-1 min-h-0 transition-opacity ${listReady ? '' : 'opacity-50 pointer-events-none'}`}
+          aria-busy={!listReady}
+          data-testid="ai-selection"
+        >
           <SelectionList
             trades={visibleTrades}
             noTradeDays={visibleNoTrade}
@@ -256,9 +268,9 @@ function NewAnalysis() {
           value={question}
           onChange={setQuestion}
           onSubmit={ask}
-          disabled={selectedCount === 0 || submitting}
+          disabled={selectedCount === 0 || submitting || !listReady}
           suggestions={SUGGESTIONS}
-          placeholder={selectedCount === 0 ? 'Select at least one trade to ask a question…' : 'Ask about the selected trades…'}
+          placeholder={!listReady ? 'Loading trades…' : selectedCount === 0 ? 'Select at least one trade to ask a question…' : 'Ask about the selected trades…'}
         />
         {error && <p className="text-sm text-loss px-1">{error}</p>}
       </div>
@@ -357,7 +369,8 @@ function Conversation({ id, status, renamed, onListChange }) {
         const fresh = await getAiConversation(id);
         if (!aliveRef.current) return;
         const pending = applyServerMessages(fresh.messages);
-        setError({ message: errorText(e), retryable: pending && e.code !== 'busy' });
+        // `busy` stays retryable: the server answers 409 without side effects, so Retry is safe
+        setError({ message: errorText(e), retryable: pending });
         const last = fresh.messages[fresh.messages.length - 1];
         if (sentText && !(pending && last.content === sentText.trim())) setDraft(d => d || sentText);
       } catch {
