@@ -97,6 +97,26 @@ function ConversationPlaceholder({ id }) {
   );
 }
 
+/** URL params → plain object: single-valued keys stay strings, repeated keys become arrays (e.g. entry_model_id). */
+export function searchParamsToObject(searchParams) {
+  const out = {};
+  for (const key of new Set(searchParams.keys())) {
+    const values = searchParams.getAll(key);
+    out[key] = values.length > 1 ? values : values[0];
+  }
+  return out;
+}
+
+/** Inverse of searchParamsToObject. */
+export function objectToSearchParams(obj) {
+  const sp = new URLSearchParams();
+  for (const [key, v] of Object.entries(obj || {})) {
+    if (Array.isArray(v)) v.forEach(x => sp.append(key, x));
+    else if (v != null) sp.append(key, v);
+  }
+  return sp;
+}
+
 const fmtTokens = (n) => (n < 1000 ? `~${n}` : `~${(n / 1000).toFixed(n < 10000 ? 1 : 0).replace(/\.0$/, '')}k`);
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
@@ -187,7 +207,7 @@ function NewAnalysis() {
       const conv = await createAiConversation({
         trade_ids: tradeIds,
         notrade_ids: notradeIds,
-        filters: Object.fromEntries(searchParams),
+        filters: searchParamsToObject(searchParams),
         title: q.slice(0, 60),
       });
       navigate(`/ai/${conv.id}`, { state: { firstQuestion: q } });
