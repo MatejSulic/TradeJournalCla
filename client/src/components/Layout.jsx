@@ -9,6 +9,7 @@ const links = [
   { to: '/trades',    label: 'Trades',    icon: ListIcon    },
   { to: '/series',    label: 'Series',    icon: SeriesIcon  },
   { to: '/expenses',  label: 'Expenses',  icon: WalletIcon  },
+  { to: '/ai',        label: 'AI Analyst', icon: SparkleIcon },
 ];
 
 const PIN_KEY = 'sidebarPinned';
@@ -167,6 +168,15 @@ function WalletIcon({ className }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-3" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 12h5v4h-5a2 2 0 010-4z" />
+    </svg>
+  );
+}
+
+function SparkleIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 3.5l1.6 4.4a3 3 0 001.8 1.8L17.8 11.3l-4.4 1.6a3 3 0 00-1.8 1.8L10 19.1l-1.6-4.4a3 3 0 00-1.8-1.8L2.2 11.3l4.4-1.6a3 3 0 001.8-1.8L10 3.5z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5v4M16.5 4.5h4M19 16v3M17.5 17.5h3" />
     </svg>
   );
 }
