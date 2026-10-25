@@ -90,10 +90,10 @@ export default function ConversationList({ activeId, onChanged, refreshKey }) {
             >
               <Link to={`/ai/${c.id}`} className="block px-3 py-2.5 pr-14" onDoubleClick={e => { e.preventDefault(); startEdit(c); }}>
                 <div className={`text-sm truncate ${active ? 'text-accent font-medium' : 'text-slate-800 dark:text-slate-200'}`}>{c.title}</div>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">
-                  <span>{fmtDate(c.updated_at)}</span>
-                  <span>·</span>
-                  <span title={`${c.trade_count} trades · ${c.notrade_count} no-trade days`}>{c.trade_count}T · {c.notrade_count}N</span>
+                <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">
+                  <span className="truncate">{fmtDate(c.updated_at)}</span>
+                  <span className="flex-shrink-0">·</span>
+                  <span className="flex-shrink-0" title={`${c.trade_count} trades · ${c.notrade_count} no-trade days`}>{c.trade_count}T · {c.notrade_count}N</span>
                 </div>
               </Link>
               <div className={`absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 transition-opacity ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>

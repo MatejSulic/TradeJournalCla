@@ -12,6 +12,8 @@ function create(env = process.env) {
       const full = `Mock analysis: trade #${id} lost because …`;
       const third = Math.ceil(full.length / 3);
       const chunks = [full.slice(0, third), full.slice(third, 2 * third), full.slice(2 * third)];
+      // MOCK_DELAY_MS slows the chunks down so UI tests can act mid-stream (default 20ms)
+      const delay = Number(process.env.MOCK_DELAY_MS || env.MOCK_DELAY_MS) || 20;
       let text = '';
       for (let i = 0; i < chunks.length; i++) {
         if (signal && signal.aborted) throw new AiError('aborted', 'Request aborted');
@@ -20,7 +22,7 @@ function create(env = process.env) {
         if (i === 0 && (process.env.MOCK_FAIL === '1' || env.MOCK_FAIL === '1')) {
           throw new AiError('rate_limit', 'Mock rate limit');
         }
-        await sleep(20);
+        await sleep(delay);
       }
       if (signal && signal.aborted) throw new AiError('aborted', 'Request aborted');
       return { text };

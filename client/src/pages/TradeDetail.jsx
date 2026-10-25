@@ -41,9 +41,16 @@ export default function TradeDetail() {
     return () => el.removeEventListener('wheel', handler);
   }, [lightbox]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    getTrade(id).then(setTrade);
+    let cancelled = false;
+    setTrade(null);
+    setLoadError('');
+    getTrade(id)
+      .then(t => { if (!cancelled) setTrade(t); })
+      .catch(e => { if (!cancelled) setLoadError(e.message || 'Could not load this trade'); });
+    return () => { cancelled = true; };
   }, [id]);
 
   const handleDelete = async () => {
@@ -53,6 +60,18 @@ export default function TradeDetail() {
     navigate(trade.day_type === 'notrade' ? viewUrl('/dashboard') : lastListUrl());
   };
 
+  if (loadError) {
+    const notFound = /not found/i.test(loadError);
+    return (
+      <div className="p-6 flex justify-center">
+        <div className="card max-w-md w-full text-center space-y-3 mt-16">
+          <p className="text-base font-semibold text-slate-900 dark:text-white">{notFound ? 'Trade not found' : 'Could not load this trade'}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{notFound ? `Trade #${id} does not exist — it may have been deleted.` : loadError}</p>
+          <button type="button" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate(lastListUrl()))} className="btn-secondary">Go back</button>
+        </div>
+      </div>
+    );
+  }
   if (!trade) return <div className="p-8 text-slate-500">Loading…</div>;
 
   const dailyBias = trade.screenshots.filter(s => s.type === 'daily_bias');
