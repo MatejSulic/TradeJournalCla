@@ -2,14 +2,16 @@ const { AiError } = require('./errors');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function create(env = process.env) {
+function create(env = process.env, { model } = {}) {
   return {
     id: 'mock',
-    model: 'mock',
+    model: model || 'mock',
     async stream({ context = '', signal, onText }) {
       const m = /#(\d+)/.exec(context);
       const id = m ? m[1] : '0';
-      const full = `Mock analysis: trade #${id} lost because …`;
+      // A pinned non-default model is echoed so tests can see which model a follow-up used
+      const tag = model && model !== 'mock' ? ` [model ${model}]` : '';
+      const full = `Mock analysis: trade #${id} lost because …${tag}`;
       const third = Math.ceil(full.length / 3);
       const chunks = [full.slice(0, third), full.slice(third, 2 * third), full.slice(2 * third)];
       // MOCK_DELAY_MS slows the chunks down so UI tests can act mid-stream (default 20ms)

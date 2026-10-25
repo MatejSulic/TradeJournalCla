@@ -145,7 +145,8 @@ router.patch('/conversations/:id', (req, res) => {
   }
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
   if (!title) return res.status(400).json({ error: 'title is required' });
-  db.prepare(`UPDATE ai_conversations SET title = ?, updated_at = ${NOW} WHERE id = ?`).run(title.slice(0, 200), id);
+  // Rename does not bump updated_at, so the conversation keeps its place in the list
+  db.prepare('UPDATE ai_conversations SET title = ? WHERE id = ?').run(title.slice(0, 200), id);
   res.json(getConversation(id));
 });
 
@@ -159,7 +160,7 @@ router.delete('/conversations/:id', (req, res) => {
 // Send a message (or { retry: true }) -> SSE: delta* then done | error
 router.post('/conversations/:id/messages', async (req, res) => {
   const id = pathId(req.params.id);
-  const conv = id && db.prepare('SELECT id, provider, context FROM ai_conversations WHERE id = ?').get(id);
+  const conv = id && db.prepare('SELECT id, provider, model, context FROM ai_conversations WHERE id = ?').get(id);
   if (!conv) return res.status(404).json({ error: 'not found' });
 
   const body = req.body || {};
@@ -173,7 +174,8 @@ router.post('/conversations/:id/messages', async (req, res) => {
   }
 
   if (active.has(id)) return res.status(409).json({ error: 'busy' });
-  const provider = getProvider(conv.provider);
+  // Follow-ups use the conversation's stored provider + model, not today's env model
+  const provider = getProvider(conv.provider, process.env, { model: conv.model });
   if (!provider) {
     return res.status(409).json({ error: `AI provider "${conv.provider}" is not available (API key missing?)` });
   }

@@ -101,3 +101,40 @@ test('assertNonEmpty throws bad_request with reason, passes non-empty', () => {
   assert.throws(() => assertNonEmpty('', 'stop_reason: refusal'), (e) => /refusal/.test(e.message));
   assert.doesNotThrow(() => assertNonEmpty('truncated answer', 'MAX_TOKENS'));
 });
+
+test('env hardening: blank, whitespace and inline-comment values count as unset', () => {
+  // docker compose keeps `KEY=   # optional` as the literal value '# optional'
+  const env = {
+    GEMINI_API_KEY: '  g-key  ',
+    ANTHROPIC_API_KEY: '# optional',
+    GEMINI_MODEL: '   ',
+    ANTHROPIC_MODEL: '# optional override',
+    AI_PROVIDER: '# optional force: gemini | anthropic | mock',
+  };
+  assert.deepEqual(getStatus(env), { providers: [{ id: 'gemini', model: 'gemini-2.5-flash' }], default: 'gemini' });
+  assert.equal(getProvider('anthropic', env), null);
+  assert.equal(getStatus({ ANTHROPIC_API_KEY: '   ' }).default, null);
+  assert.equal(getStatus({ GEMINI_API_KEY: 'x', GEMINI_MODEL: ' m2 ' }).providers[0].model, 'm2');
+  assert.equal(getStatus({ AI_PROVIDER: ' mock ' }).default, 'mock');
+  assert.equal(getStatus({ GEMINI_API_KEY: 'x', ANTHROPIC_API_KEY: 'y', AI_PROVIDER: ' gemini ' }).default, 'gemini');
+});
+
+test('AI_PROVIDER only forces a provider whose key is set', () => {
+  assert.equal(getStatus({ ANTHROPIC_API_KEY: 'y', AI_PROVIDER: 'gemini' }).default, 'anthropic');
+});
+
+test('getProvider uses a pinned (stored) model over the env model', () => {
+  const env = { GEMINI_API_KEY: 'x', GEMINI_MODEL: 'today-model', ANTHROPIC_API_KEY: 'y' };
+  assert.equal(getProvider('gemini', env).model, 'today-model');
+  assert.equal(getProvider('gemini', env, { model: 'stored-model' }).model, 'stored-model');
+  assert.equal(getProvider('anthropic', env, { model: 'claude-old' }).model, 'claude-old');
+  assert.equal(getProvider('gemini', env, { model: null }).model, 'today-model');
+});
+
+test('mock echoes a pinned model only when it is not the default', async () => {
+  const run = (p) => p.stream({ context: 'TRADE #3', messages: [] });
+  const plain = await run(getProvider('mock', { AI_PROVIDER: 'mock' }, { model: 'mock' }));
+  assert.ok(!plain.text.includes('[model'));
+  const pinned = await run(getProvider('mock', { AI_PROVIDER: 'mock' }, { model: 'mock-pinned' }));
+  assert.ok(pinned.text.includes('[model mock-pinned]'));
+});
