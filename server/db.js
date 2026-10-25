@@ -2,7 +2,8 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, 'data', 'journal.db');
+// DB_PATH env overrides the default (scratch DBs for tests / UI verification)
+const DB_PATH = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(__dirname, 'data', 'journal.db');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -99,6 +100,29 @@ function runSchema() {
       notes        TEXT,
       created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
     );
+
+    -- AI Analyst conversations (context = frozen serialized journal data)
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      title         TEXT    NOT NULL,
+      provider      TEXT    NOT NULL,
+      model         TEXT    NOT NULL,
+      filters       TEXT,
+      context       TEXT    NOT NULL,
+      trade_count   INTEGER NOT NULL,
+      notrade_count INTEGER NOT NULL,
+      created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      updated_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_messages (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
+      role            TEXT    NOT NULL CHECK(role IN ('user', 'assistant')),
+      content         TEXT    NOT NULL,
+      created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id);
 
   `);
 

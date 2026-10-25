@@ -20,6 +20,7 @@ app.use('/api/entry-models', require('./routes/entryModels'));
 app.use('/api/trades', require('./routes/trades'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/expenses', require('./routes/expenses'));
+app.use('/api/ai', require('./routes/ai'));
 
 // Serve built client (Docker / production) when present
 const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
