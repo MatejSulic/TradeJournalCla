@@ -9,7 +9,7 @@ test('no keys -> no providers', () => {
 
 test('gemini only', () => {
   const s = getStatus({ GEMINI_API_KEY: 'x' });
-  assert.deepEqual(s, { providers: [{ id: 'gemini', model: 'gemini-2.5-flash' }], default: 'gemini' });
+  assert.deepEqual(s, { providers: [{ id: 'gemini', model: 'gemini-3.8-flash' }], default: 'gemini' });
 });
 
 test('both keys -> anthropic default, both listed', () => {
@@ -111,7 +111,7 @@ test('env hardening: blank, whitespace and inline-comment values count as unset'
     ANTHROPIC_MODEL: '# optional override',
     AI_PROVIDER: '# optional force: gemini | anthropic | mock',
   };
-  assert.deepEqual(getStatus(env), { providers: [{ id: 'gemini', model: 'gemini-2.5-flash' }], default: 'gemini' });
+  assert.deepEqual(getStatus(env), { providers: [{ id: 'gemini', model: 'gemini-3.8-flash' }], default: 'gemini' });
   assert.equal(getProvider('anthropic', env), null);
   assert.equal(getStatus({ ANTHROPIC_API_KEY: '   ' }).default, null);
   assert.equal(getStatus({ GEMINI_API_KEY: 'x', GEMINI_MODEL: ' m2 ' }).providers[0].model, 'm2');
@@ -137,4 +137,13 @@ test('mock echoes a pinned model only when it is not the default', async () => {
   assert.ok(!plain.text.includes('[model'));
   const pinned = await run(getProvider('mock', { AI_PROVIDER: 'mock' }, { model: 'mock-pinned' }));
   assert.ok(pinned.text.includes('[model mock-pinned]'));
+});
+
+test('normalizeError digs the human message out of nested JSON bodies', () => {
+  const { normalizeError } = require('../ai/errors');
+  const inner = JSON.stringify({ error: { code: 404, message: 'This model models/x is no longer available to new users.', status: 'NOT_FOUND' } });
+  const e = normalizeError({ status: 404, message: JSON.stringify({ error: { message: inner, code: 404 } }) });
+  assert.equal(e.code, 'bad_request');
+  assert.equal(e.message, 'This model models/x is no longer available to new users.');
+  assert.equal(normalizeError({ status: 500, message: 'plain text' }).message, 'plain text');
 });

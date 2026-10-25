@@ -1,6 +1,6 @@
 const { AiError } = require('./errors');
 
-const DEFAULT_MODELS = { gemini: 'gemini-2.5-flash', anthropic: 'claude-sonnet-5-5' };
+const DEFAULT_MODELS = { gemini: 'gemini-3.8-flash', anthropic: 'claude-sonnet-5-5' };
 const KEYS = { gemini: 'GEMINI_API_KEY', anthropic: 'ANTHROPIC_API_KEY' };
 const MODEL_VARS = { gemini: 'GEMINI_MODEL', anthropic: 'ANTHROPIC_MODEL' };
 

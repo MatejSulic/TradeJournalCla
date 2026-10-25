@@ -28,7 +28,7 @@ GEMINI_API_KEY=...
 # optional
 ANTHROPIC_API_KEY=...
 # optional overrides
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.8-flash
 ANTHROPIC_MODEL=claude-sonnet-5-5
 # optional force: gemini | anthropic | mock (only used if its key is set)
 AI_PROVIDER=
@@ -172,7 +172,7 @@ Viewport-fitting (`h-full flex min-h-0`, no page scroll), two columns:
   - Selection list (internal scroll): compact rows — checkbox, date, asset, direction, result chip (theme colours), R, entry models; no-trade rows dashed with "No trade". Unchecking is kept in state keyed by id; filter changes keep unchecked ids unchecked.
   - Composer: suggestion chips (*"What do my losing trades have in common?"*, *"Which setups work best and why?"*, *"Patterns in my psychology notes?"*, *"Why did I skip trades on no-trade days?"*), textarea, **Ask** (disabled with 0 selected or no provider). Ctrl/Cmd+Enter submits. Submitting creates the conversation, navigates to `/ai/:id`, and streams the first answer.
 - **Right — conversation (`/ai/:id`):**
-  - Header: title, `23 trades · 4 no-trade days · Gemini · gemini-2.5-flash · created Oct 25`, filters snapshot as read-only chips.
+  - Header: title, `23 trades · 4 no-trade days · Gemini · gemini-3.8-flash · created Oct 25`, filters snapshot as read-only chips.
   - Messages: user bubbles right (accent-soft), assistant left rendered with `react-markdown` + `remark-gfm`, styled via theme tokens; `#123` in assistant text becomes a `<Link to="/trades/123">`. Streaming message shows a caret; auto-scroll to bottom unless the user scrolled up.
   - Error under the last user message with **Retry**.
   - Composer at the bottom (same as above, without chips after the first message).

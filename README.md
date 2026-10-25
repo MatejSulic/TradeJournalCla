@@ -117,7 +117,7 @@ cp .env.example .env     # then set GEMINI_API_KEY (or ANTHROPIC_API_KEY)
 
 Keep `.env` lines as bare `KEY=value` with comments on their own lines (docker compose treats an inline `# …` after an empty value as the value).
 
-Restart the server; with Docker run `docker compose up -d --build`. Without a key the page shows a "not configured" notice. Optional `GEMINI_MODEL` / `ANTHROPIC_MODEL` override the defaults (`gemini-2.5-flash`, `claude-sonnet-5-5`).
+Restart the server; with Docker run `docker compose up -d --build`. Without a key the page shows a "not configured" notice. Optional `GEMINI_MODEL` / `ANTHROPIC_MODEL` override the defaults (`gemini-3.8-flash`, `claude-sonnet-5-5`).
 
 ### Build for production
 
