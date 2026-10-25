@@ -1,6 +1,9 @@
+// Load .env (repo root) before anything reads process.env; missing file is fine
+const path = require('path');
+try { process.loadEnvFile(path.join(__dirname, '..', '.env')); } catch {}
+
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 
