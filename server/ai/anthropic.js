@@ -1,4 +1,4 @@
-const { AiError, normalizeError } = require('./errors');
+const { AiError, normalizeError, assertNonEmpty } = require('./errors');
 
 function create({ apiKey, model }) {
   return {
@@ -9,6 +9,7 @@ function create({ apiKey, model }) {
       const Anthropic = require('@anthropic-ai/sdk');
       const client = new (Anthropic.default || Anthropic)({ apiKey });
       let text = '';
+      let stopReason = null;
       try {
         const stream = client.messages.stream(
           {
@@ -23,10 +24,12 @@ function create({ apiKey, model }) {
           { signal },
         );
         stream.on('text', (t) => { text += t; if (onText) onText(t); });
-        await stream.finalMessage();
+        const final = await stream.finalMessage();
+        stopReason = final && final.stop_reason;
       } catch (err) {
         throw normalizeError(err, signal);
       }
+      assertNonEmpty(text, stopReason && 'stop_reason: ' + stopReason, 'Claude');
       return { text };
     },
   };

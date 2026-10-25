@@ -75,3 +75,29 @@ test('mock MOCK_FAIL=1 fails with rate_limit after a chunk', async () => {
     if (prev === undefined) delete process.env.MOCK_FAIL; else process.env.MOCK_FAIL = prev;
   }
 });
+
+const { normalizeError, assertNonEmpty } = require('../ai/errors');
+
+test('normalizeError table', () => {
+  const abortLike = Object.assign(new Error('x'), { name: 'APIUserAbortError' });
+  const rows = [
+    [{ status: 401 }, 'auth'],
+    [{ status: 403 }, 'auth'],
+    [{ status: 429 }, 'rate_limit'],
+    [{ status: 400, message: 'bad' }, 'bad_request'],
+    [{ status: 400, message: 'API key not valid. Please pass a valid API key.' }, 'auth'],
+    [{ status: 400, message: '{"error":{"details":[{"reason":"API_KEY_INVALID"}]}}' }, 'auth'],
+    [{ status: 500 }, 'unavailable'],
+    [Object.assign(new Error('x'), { name: 'AbortError' }), 'aborted'],
+    [abortLike, 'aborted'],
+    [new Error('fetch failed'), 'unavailable'],
+  ];
+  for (const [err, code] of rows) assert.equal(normalizeError(err).code, code, JSON.stringify(err.message || err));
+});
+
+test('assertNonEmpty throws bad_request with reason, passes non-empty', () => {
+  assert.throws(() => assertNonEmpty('  \n', 'SAFETY', 'Gemini'),
+    (e) => e instanceof AiError && e.code === 'bad_request' && /SAFETY/.test(e.message));
+  assert.throws(() => assertNonEmpty('', 'stop_reason: refusal'), (e) => /refusal/.test(e.message));
+  assert.doesNotThrow(() => assertNonEmpty('truncated answer', 'MAX_TOKENS'));
+});

@@ -1,4 +1,4 @@
-const { AiError, normalizeError } = require('./errors');
+const { AiError, normalizeError, assertNonEmpty } = require('./errors');
 
 function create({ apiKey, model }) {
   return {
@@ -13,6 +13,7 @@ function create({ apiKey, model }) {
         parts: [{ text: m.content }],
       }));
       let text = '';
+      let reason = null;
       try {
         const stream = await ai.models.generateContentStream({
           model,
@@ -21,12 +22,17 @@ function create({ apiKey, model }) {
         });
         for await (const chunk of stream) {
           if (signal && signal.aborted) throw new AiError('aborted', 'Request aborted');
+          const block = chunk.promptFeedback && chunk.promptFeedback.blockReason;
+          const fin = chunk.candidates && chunk.candidates[0] && chunk.candidates[0].finishReason;
+          if (block) reason = 'prompt blocked: ' + block;
+          else if (fin && fin !== 'STOP') reason = fin;
           const t = chunk.text;
           if (t) { text += t; if (onText) onText(t); }
         }
       } catch (err) {
         throw normalizeError(err, signal);
       }
+      assertNonEmpty(text, reason, 'Gemini (blocked by safety filters?)');
       return { text };
     },
   };
