@@ -91,7 +91,7 @@ export default function PerformanceCurve({ trades }) {
                 minTickGap={32}
                 tickMargin={8}
               />
-              <YAxis tick={{ fill: colors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={36} allowDecimals={isR} tickFormatter={v => (isR ? `${v}R` : v)} />
+              <YAxis tick={{ fill: colors.tick, fontSize: 11 }} axisLine={false} tickLine={false} width={44} allowDecimals={isR} tickFormatter={v => (isR ? `${v}R` : v)} />
               <Tooltip
                 {...tooltipProps(colors)}
                 formatter={v => [isR ? `${v.toFixed(2)}R` : v, isR ? 'Net R' : 'Score']}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   format, parseISO,
@@ -8,7 +8,7 @@ import {
   isSameMonth, isToday, getISOWeek,
 } from 'date-fns';
 
-export default function TradeCalendar({ trades, noTradeDays = [], passedDates = new Set() }) {
+export default function TradeCalendar({ trades, noTradeDays = [], passedDates = new Set(), statsMonth = null, onStatsMonth }) {
   const navigate = useNavigate();
   // Shown month survives leaving the Dashboard (open a trade → come back) within the browser tab
   const [calMonth, setCalMonthState] = useState(() => {
@@ -19,11 +19,18 @@ export default function TradeCalendar({ trades, noTradeDays = [], passedDates = 
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), 1);
   });
-  const setCalMonth = update => setCalMonthState(m => {
-    const next = typeof update === 'function' ? update(m) : update;
+  const setCalMonth = update => {
+    const next = typeof update === 'function' ? update(calMonth) : update;
     try { sessionStorage.setItem('calMonth', format(next, 'yyyy-MM')); } catch { /* storage unavailable */ }
-    return next;
-  });
+    setCalMonthState(next);
+    // While month stats are on, the date-range filter follows the shown month
+    if (statsMonth && !isSameMonth(next, statsMonth)) onStatsMonth?.(next);
+  };
+  // Month filter set from the URL (reload, back) → show that month
+  useEffect(() => {
+    if (statsMonth && !isSameMonth(statsMonth, calMonth)) setCalMonthState(statsMonth);
+  }, [statsMonth?.getTime()]);
+  const statsActive = statsMonth != null && isSameMonth(statsMonth, calMonth);
   const [popup, setPopup] = useState(null); // { date, trades } | null
   const [showPnl, setShowPnl] = useState(true);
 
@@ -159,9 +166,11 @@ export default function TradeCalendar({ trades, noTradeDays = [], passedDates = 
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
-          <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white w-[118px] text-center">
-            {format(calMonth, 'MMMM yyyy')}
-          </span>
+          <MonthPicker
+            value={calMonth}
+            onChange={setCalMonth}
+            activeMonths={new Set([...Object.keys(byDate), ...Object.keys(noTradeByDate)].map(k => k.slice(0, 7)))}
+          />
           <button
             type="button"
             onClick={() => setCalMonth(m => addMonths(m, 1))}
@@ -173,8 +182,8 @@ export default function TradeCalendar({ trades, noTradeDays = [], passedDates = 
         </div>
 
         <div className="seg">
-          <button type="button" onClick={goToCurrent} className="seg-item">
-            Current Month
+          <button type="button" onClick={goToCurrent} title="Go to current month" className="seg-item">
+            Today
           </button>
           <button
             type="button"
@@ -195,8 +204,27 @@ export default function TradeCalendar({ trades, noTradeDays = [], passedDates = 
           </button>
         </div>
 
+        {onStatsMonth && (
+          <button
+            type="button"
+            onClick={() => onStatsMonth(statsActive ? null : calMonth)}
+            title={statsActive ? 'Clear month filter' : 'Filter dashboard stats to this month'}
+            aria-pressed={statsActive}
+            className={`ml-auto h-8 px-3.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              statsActive
+                ? 'bg-accent text-white hover:bg-accent/90'
+                : 'bg-surface-raised text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" />
+            </svg>
+            Stats
+          </button>
+        )}
+
         {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 ml-auto">
+        <div className="basis-full flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {LEGEND.map(([label, cls]) => (
             <span key={label} className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
               <span className={`w-2.5 h-2.5 rounded-[4px] flex-shrink-0 ${cls}`} />
@@ -436,6 +464,83 @@ export default function TradeCalendar({ trades, noTradeDays = [], passedDates = 
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Month label that opens a year + 12-month grid; dot = month with logged days
+function MonthPicker({ value, onChange, activeMonths }) {
+  const [open, setOpen] = useState(false);
+  const [year, setYear] = useState(value.getFullYear());
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = e => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const onKey = e => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const toggle = () => { setYear(value.getFullYear()); setOpen(o => !o); };
+  const now = new Date();
+  const arrowCls = 'w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-raised text-slate-500 dark:text-slate-400 dark:hover:text-white hover:text-slate-900 transition-colors';
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        className={`h-7 px-2 rounded-lg text-sm font-semibold tabular-nums text-slate-900 dark:text-white w-[132px] flex items-center justify-center gap-1 transition-colors hover:bg-surface-raised ${open ? 'bg-surface-raised' : ''}`}
+      >
+        {format(value, 'MMMM yyyy')}
+        <svg className={`w-3 h-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-40 w-64 card !p-3 !shadow-2xl dark:ring-1 dark:ring-surface-border">
+          <div className="flex items-center justify-between mb-2">
+            <button type="button" onClick={() => setYear(y => y - 1)} aria-label="Previous year" className={arrowCls}>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+            <span className="text-sm font-semibold tabular-nums text-slate-900 dark:text-white">{year}</span>
+            <button type="button" onClick={() => setYear(y => y + 1)} aria-label="Next year" className={arrowCls}>
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {MONTH_SHORT.map((label, i) => {
+              const selected = value.getFullYear() === year && value.getMonth() === i;
+              const current  = now.getFullYear() === year && now.getMonth() === i;
+              const active   = activeMonths.has(`${year}-${String(i + 1).padStart(2, '0')}`);
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => { onChange(new Date(year, i, 1)); setOpen(false); }}
+                  className={`relative h-9 rounded-xl text-sm font-medium transition-colors ${
+                    selected
+                      ? 'bg-accent text-white'
+                      : `hover:bg-surface-raised ${current ? 'text-accent ring-1 ring-inset ring-accent/40' : 'text-slate-700 dark:text-slate-200'}`
+                  }`}
+                >
+                  {label}
+                  {active && (
+                    <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${selected ? 'bg-white' : 'bg-accent'}`} />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

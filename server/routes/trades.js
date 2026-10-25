@@ -66,7 +66,8 @@ router.get('/', (req, res) => {
     sql += " AND t.pnl = 'breakeven' AND t.be_outcome = ?"; params.push(pnl.slice(3));
   } else if (pnl)   { sql += ' AND t.pnl = ?';            params.push(pnl); }
   if (from)         { sql += ' AND t.entry_time >= ?';    params.push(from); }
-  if (to)           { sql += ' AND t.entry_time <= ?';    params.push(to); }
+  // Date-only `to` is inclusive of the whole day (entry_time carries a time part)
+  if (to)           { sql += ' AND t.entry_time <= ?';    params.push(/^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59` : to); }
 
   sql += ' ORDER BY t.created_at DESC';
 

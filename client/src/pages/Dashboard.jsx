@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { parseISO, getDay } from 'date-fns';
+import { parseISO, getDay, format, startOfMonth, endOfMonth } from 'date-fns';
 import { getTrades, getEntryModels, getSeries, reorderEntryModels, getExpenseAccounts } from '../api';
 import DatePicker from '../components/DatePicker';
 import TradeCalendar from '../components/TradeCalendar';
@@ -110,14 +110,30 @@ export default function Dashboard() {
     return next;
   }, { replace: true });
 
+  // Calendar "Show stats": from/to spanning exactly one calendar month
+  const monthRange = d => [format(startOfMonth(d), 'yyyy-MM-dd'), format(endOfMonth(d), 'yyyy-MM-dd')];
+  const statsMonth = (() => {
+    if (!filters.from || !filters.to) return null;
+    const d = parseISO(filters.from);
+    const [f, t] = monthRange(d);
+    return f === filters.from && t === filters.to ? startOfMonth(d) : null;
+  })();
+  const setStatsMonth = d => setSearchParams(prev => {
+    const next = new URLSearchParams(prev);
+    if (d) { const [f, t] = monthRange(d); next.set('from', f); next.set('to', t); }
+    else { next.delete('from'); next.delete('to'); }
+    return next;
+  }, { replace: true });
+
   // Active filters (session excluded — it has its own control in the header)
   const filterChips = [
     filters.asset && { key: 'asset', label: filters.asset },
     filters.series_id && { key: 'series_id', label: seriesList.find(s => s.id == filters.series_id)?.name || 'Series' },
     filters.direction && { key: 'direction', label: filters.direction === 'long' ? 'Long' : 'Short' },
     filters.pnl && { key: 'pnl', label: { win: 'Win', loss: 'Loss', breakeven: 'Breakeven', be_win: 'BE → Win', be_loss: 'BE → Loss' }[filters.pnl] },
-    filters.from && { key: 'from', label: `From ${filters.from}` },
-    filters.to && { key: 'to', label: `To ${filters.to}` },
+    statsMonth && { key: 'month', label: format(statsMonth, 'MMMM yyyy'), clear: () => setStatsMonth(null) },
+    !statsMonth && filters.from && { key: 'from', label: `From ${filters.from}` },
+    !statsMonth && filters.to && { key: 'to', label: `To ${filters.to}` },
     dowFilter && { key: 'dow', label: DOWS.find(([v]) => v === String(dowFilter))?.[1] },
     filters.entry_model_id.length > 0 && {
       key: 'entry_model_id',
@@ -344,7 +360,13 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="min-h-0 h-full">
-          <TradeCalendar trades={displayTrades} noTradeDays={noTradeDays} passedDates={passedDates} />
+          <TradeCalendar
+            trades={displayTrades}
+            noTradeDays={noTradeDays}
+            passedDates={passedDates}
+            statsMonth={statsMonth}
+            onStatsMonth={setStatsMonth}
+          />
         </div>
       </div>
     </div>

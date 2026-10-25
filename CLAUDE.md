@@ -65,7 +65,7 @@ TradeJournalCla/
 ├── server/
 │   ├── index.js              # Express entry, mounts routes, serves /uploads static
 │   ├── db.js                 # SQLite init, schema, idempotent migrations, achievement seeds, reinitDb()
-│   ├── data/journal.db       # SQLite DB (committed to git as backup; -wal/-shm ignored)
+│   ├── data/journal.db       # SQLite DB (gitignored — back up via ZIP backup)
 │   ├── uploads/              # Screenshot files (gitignored)
 │   └── routes/
 │       ├── trades.js         # CRUD (trades + no-trade days)
@@ -168,7 +168,7 @@ Empty filter results render `—` (never NaN).
 ### Layout below stats
 Two equal columns filling the remaining viewport height (`flex-1 min-h-0`):
 - **Left:** **Performance** (`PerformanceCurve.jsx`, monotone area, **R (default) / Score** toggle persisted in localStorage `perfMode`: score = +1 win / −1 loss, R = win +R:R / loss −1R (ends at Net R); sorted by `created_at`, current value top-right) above **Top Setups** (`TopSetups.jsx`, tabs **BE Outcome (default) / Top Setups** persisted in localStorage `setupsTab`; setups = entry models ranked by win rate with progress bars + trade count, <50% in loss colour; BE Outcome = `BeOutcome.jsx` semicircle tick gauge, % of breakevens with `be_outcome` that would be a win, + →W / →L / untagged counts) and **Win Rate by Day** (`WinRateByDay.jsx`, Mon–Fri, neutral bars, best day solid accent).
-- **Right:** **TradeCalendar** heatmap — rounded day tiles (win `accent-soft`, strong win = net R ≥ 2 or ≥2 wins & 0 losses → solid accent, loss tint, BE neutral, out-of-month hatched), weekly summary column (`W{isoWeek}`), optional $ P&L toggle, dashed NO TRADE tiles, PASS ring for winning days where a prop account was **passed** (`passed_at`). Click day → trade detail (1 trade) or popup list (more).
+- **Right:** **TradeCalendar** heatmap — rounded day tiles (win `accent-soft`, strong win = net R ≥ 2 or ≥2 wins & 0 losses → solid accent, loss tint, BE neutral, out-of-month hatched), weekly summary column (`W{isoWeek}`), optional $ P&L toggle, dashed NO TRADE tiles, PASS ring for winning days where a prop account was **passed** (`passed_at`). Click day → trade detail (1 trade) or popup list (more). Header: ‹ › month arrows, clickable month label → **MonthPicker** popover (year arrows + 12-month grid, dot = month with logged days), **Today**, **Stats** (sets `from`/`to` to the shown month; while on, month navigation moves the range; whole-month range shows as one chip `October 2026`), **P&L** toggle.
 
 ### Chart heights
 Charts using `height="100%"` work **only** because every ancestor has a resolved height (`flex-1 min-h-0` chain down from the page). If you break that chain, the chart becomes invisible; fall back to fixed pixel heights. Re-check 1366×768 with `scripts/dev/screenshots.mjs` after layout changes.
