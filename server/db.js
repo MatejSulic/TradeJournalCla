@@ -2,9 +2,9 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// DB_PATH env overrides the default (scratch DBs for tests / UI verification)
-const DB_PATH = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(__dirname, 'data', 'journal.db');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+// DB_PATH env overrides the default (scratch DBs for tests / UI verification);
+// uploads then move next to that DB (or UPLOADS_DIR) so a scratch server never touches server/uploads.
+const { DB_PATH, UPLOADS_DIR } = require('./paths').resolvePaths(process.env, __dirname);
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });

@@ -12,7 +12,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded screenshots
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(require('./db').UPLOADS_DIR));
 
 // Routes
 app.use('/api/series', require('./routes/series'));

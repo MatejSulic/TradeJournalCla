@@ -293,4 +293,21 @@ left=$(cd "$T" && node -e "const D=require('better-sqlite3');console.log(new D('
 [[ "$left" == 0 ]] || fail "messages not cascaded on delete ($left left)"
 ok "DELETE conversation -> 404 afterwards, messages cascaded"
 
+# DB_PATH isolation: uploads go next to the scratch DB, not into <server>/uploads
+stop_server
+mkdir "$T/alt"
+(cd "$T" && node -e "new (require('better-sqlite3'))('data/journal.db').backup('alt/journal.db').then(()=>{})")
+before=$(ls "$T/uploads" | wc -l)
+start_server AI_PROVIDER=mock DB_PATH="$T/alt/journal.db"
+[[ -d "$T/alt/uploads" ]] || fail "DB_PATH set but $T/alt/uploads was not created"
+req POST /api/trades -F asset=NQ -F direction=long -F pnl=win -F entry_time=2026-10-18T10:00 -F "ltf_screenshots=@$PNG"
+[[ "$CODE" == 201 ]] || fail "POST trade with LTF on DB_PATH server -> $CODE $BODY"
+SID=$(json "$BODY" 'j.id'); FN=$(json "$BODY" "j.screenshots[0].filename")
+[[ -f "$T/alt/uploads/$FN" ]] || fail "upload not stored in DB_PATH uploads dir"
+[[ ! -e "$T/uploads/$FN" && "$(ls "$T/uploads" | wc -l)" == "$before" ]] || fail "upload leaked into server uploads dir"
+[[ "$(curl -s -o /dev/null -w '%{http_code}' "$B/uploads/$FN")" == 200 ]] || fail "/uploads not served from DB_PATH uploads dir"
+req DELETE "/api/trades/$SID"
+[[ ! -e "$T/alt/uploads/$FN" ]] || fail "screenshot not deleted from DB_PATH uploads dir"
+ok "DB_PATH server: uploads stored/served/deleted in <dbdir>/uploads, server uploads dir untouched"
+
 echo "ALL OK"
