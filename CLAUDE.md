@@ -26,6 +26,7 @@ Runs fully locally — no auth, single user (`user_id = 'local'`).
 **Run dev:** `npm run dev` from root (server on :3001, client on :5173).
 **Docker (daily use):** `docker compose up -d --build` → http://localhost:7420 (container `ascend`, `restart: unless-stopped` → starts on boot). Single container: Express serves the built client from `client/dist` + API. `server/data` and `server/uploads` are bind-mounted, so Docker and dev share the same DB. After code changes, re-run `docker compose up -d --build`. Avoid running `npm run dev` at the same time (two processes on one SQLite; backup restore in one won't reload the other) — `docker compose stop` first.
 **Verification (never on the real DB):** `scripts/dev/api-smoke.sh [db]` boots a scratch copy of the server + a backup DB on :3999 and checks trade / no-trade CRUD. `node scripts/dev/screenshots.mjs <outDir> [baseUrl] [--only=dashboard,new,…]` takes light/dark × 1600/1366 screenshots (blocks non-GET API calls, fails on console errors, `NaN`, or page scroll on Dashboard/TradeForm). Dev client against Docker API: `cd client && API_TARGET=http://127.0.0.1:7420 npx vite --port 5190`.
+**Tests:** `cd server && npm test` (node:test, `server/test/*.test.js`, pure units — never import `db.js`). `scripts/dev/api-smoke.sh` also covers the AI endpoints (runs with `AI_PROVIDER=mock`). Scratch server for UI work: `DB_PATH=/tmp/x/journal.db AI_PROVIDER=mock PORT=3998 node server/index.js` (with `DB_PATH` set, uploads go to a sibling dir unless `UPLOADS_DIR` is set — `server/paths.js`). `screenshots.mjs` also has an `ai` page.
 **First install:** `npm run install:all`. `Spustit.sh` / `Spustit.bat` = one-click launcher (checks Node, installs deps, opens browser).
 
 ---
@@ -40,6 +41,7 @@ TradeJournalCla/
 │   ├── public/               # favicon.svg (logo itself is the inline SVG in Logo.jsx)
 │   ├── src/
 │   │   ├── api.js            # All fetch calls to /api/* (+ backup download/restore helpers)
+│   │   ├── aiFilters.js      # searchParamsToObject / objectToSearchParams (filters ↔ conversation snapshot)
 │   │   ├── lastView.js       # Remembers last Dashboard / Trades URL (filters) for Back / Save / sidebar
 │   │   ├── App.jsx           # Routes (see below), wrapped in ThemeProvider
 │   │   ├── contexts/
@@ -50,6 +52,8 @@ TradeJournalCla/
 │   │   │   ├── Layout.jsx        # Collapsible sidebar (icon rail → hover slide-out overlay, pin persisted in localStorage 'sidebarPinned'), SVG logo, nav, theme toggle
 │   │   │   ├── TradeCalendar.jsx # Heatmap month calendar of trades + no-trade days + weekly summary column
 │   │   │   ├── dashboard/        # StatCards (+ computeStats), PerformanceCurve, TopSetups (+ BeOutcome tab), WinRateByDay
+│   │   │   ├── TradeFilters.jsx  # useTradeFilters hook + filters UI (popover, chips, asset list), shared by Dashboard and AI Analyst
+│   │   │   ├── ai/               # ConversationList, SelectionList, Composer, ChatMessages, Markdown (react-markdown + remark-gfm)
 │   │   │   ├── Logo.jsx          # Ascend mark as inline SVG (currentColor)
 │   │   │   ├── ConfirmDialog.jsx # Modal confirm (use instead of window.confirm)
 │   │   │   ├── DatePicker.jsx    # Custom date input
@@ -59,11 +63,15 @@ TradeJournalCla/
 │   │       ├── TradeDetail.jsx # Read-only trade view with screenshots + lightbox
 │   │       ├── TradeList.jsx   # Filterable + paginated table (25/page), backup download/restore
 │   │       ├── Series.jsx      # Trade series CRUD
-│   │       └── Expenses.jsx    # Prop firm accounts + payouts, CSV export
+│   │       ├── Expenses.jsx    # Prop firm accounts + payouts, CSV export
+│   │       └── AiAnalyst.jsx   # AI Analyst: conversation list, trade selection, streaming chat
 │   ├── tailwind.config.js
 │   └── index.css             # Theme CSS variables + .card, .card-hero, .btn-*, .input, .label, .seg, .stat-*
 ├── server/
 │   ├── index.js              # Express entry, mounts routes, serves /uploads static
+│   ├── paths.js              # resolvePaths(): DB_PATH env → own uploads dir unless UPLOADS_DIR
+│   ├── ai/                   # index.js (provider selection), errors.js, gemini.js, anthropic.js, mock.js, context.js, prompt.js
+│   ├── test/                 # node:test unit tests (`npm test` in server/)
 │   ├── db.js                 # SQLite init, schema, idempotent migrations, achievement seeds, reinitDb()
 │   ├── data/journal.db       # SQLite DB (gitignored — back up via ZIP backup)
 │   ├── uploads/              # Screenshot files (gitignored)
@@ -72,11 +80,12 @@ TradeJournalCla/
 │       ├── entryModels.js    # GET / POST / PATCH /reorder / DELETE
 │       ├── series.js         # CRUD
 │       ├── expenses.js       # Prop accounts + payouts
+│       ├── ai.js             # AI Analyst: status, estimate, conversations, SSE messages
 │       └── backup.js         # GET = download ZIP, POST = restore ZIP
 ```
 
 ### Routes (client)
-`/dashboard`, `/trades`, `/trades/new`, `/trades/:id`, `/trades/:id/edit`, `/series`, `/expenses` (`/` and unknown paths → `/dashboard`).
+`/dashboard`, `/trades`, `/trades/new`, `/trades/:id`, `/trades/:id/edit`, `/series`, `/expenses`, `/ai`, `/ai/:id` (`/` and unknown paths → `/dashboard`).
 
 ### API (server)
 | Prefix | Endpoints |
@@ -85,6 +94,7 @@ TradeJournalCla/
 | `/api/entry-models` | `GET /`, `POST /`, `PATCH /reorder`, `DELETE /:id` |
 | `/api/series` | `GET /`, `POST /`, `PUT /:id`, `DELETE /:id` |
 | `/api/expenses` | `GET /accounts` (incl. `total_payouts`), `POST /accounts`, `PUT /accounts/:id`, `DELETE /accounts/:id`, `POST /accounts/:id/payouts`, `DELETE /payouts/:id` |
+| `/api/ai` | `GET /status` (providers + default, never keys), `POST /estimate` (token estimate for a selection), `GET/POST /conversations` (POST → 201 + conversation), `GET/PATCH/DELETE /conversations/:id`, `POST /conversations/:id/messages` (SSE `delta`/`done`/`error`; `{retry:true}` re-asks the last user message; 409 when busy or provider unavailable) |
 | `/api/backup` | `GET /` (ZIP download), `POST /` (field `backup`, restores DB + uploads, calls `reinitDb()`) |
 
 ---
@@ -103,6 +113,10 @@ screenshots         (id, trade_id, type, filename, original_name, created_at)
 prop_accounts       (id, firm_name, account_size, purchase_price, status,
                      purchased_at, passed_at, blown_at, notes, created_at, updated_at)
 prop_payouts        (id, account_id, amount, payout_date, notes, created_at)
+ai_conversations    (id, title, provider, model, filters JSON, context, trade_count, notrade_count,
+                     created_at, updated_at)   -- context = frozen serialized journal data
+ai_messages         (id, conversation_id → ai_conversations ON DELETE CASCADE, role 'user'|'assistant',
+                     content, created_at)
 -- legacy, unused (may exist in old DBs): player_profile, achievements, player_achievements, xp_log
 ```
 
@@ -178,6 +192,14 @@ Always take colors from `useThemeColors()` (theme-aware), never hardcode; toolti
 
 ---
 
+## AI Analyst
+
+Page `/ai` (`/ai/:id`): pick trades (shared `TradeFilters` + checkbox list, **include no-trade days** toggle → `nt=0` in URL), see a token estimate, start a conversation and chat with streaming answers. Conversation list ordered by last activity (`updated_at DESC`).
+- **Providers** (`server/ai/index.js`): `AI_PROVIDER` forces one (`gemini` | `anthropic` | `mock`); otherwise anthropic if `ANTHROPIC_API_KEY`, else gemini if `GEMINI_API_KEY`, else none (page shows a not-configured card). Default models `gemini-2.5-flash` / `claude-sonnet-5-5`, overridable via `GEMINI_MODEL` / `ANTHROPIC_MODEL`. Keys live only server-side in `.env` (gitignored, loaded by `process.loadEnvFile` in `server/index.js`; template `.env.example`; docker-compose `env_file` is optional). `/api/ai/status` never returns keys. `mock` provider streams canned text (`MOCK_DELAY_MS`, `MOCK_FAIL=1` for tests).
+- **Frozen snapshot:** creating a conversation serializes the selected trades (+ no-trade days) into `ai_conversations.context` and stores the filters; later edits/deletions of trades don't change it. **No images/screenshots** are ever sent.
+- **Chat:** one answer at a time per conversation (409 busy); leaving the page or switching conversation aborts the stream and the partial answer is not saved. Failed answer → Retry (`{retry:true}`) without duplicating the user message. If the provider key is removed later, follow-ups return 409 and history stays readable. `#123` in answers links to `/trades/123` (deleted trade → TradeDetail not-found card).
+- **Testing:** never against the real DB — scratch server (`DB_PATH` + `AI_PROVIDER=mock`) or `api-smoke.sh`.
+
 ## No-trade days
 
 A logged day without a trade = row in `trades` with `day_type = 'notrade'`: only `entry_time` (date), `premarket_analysis`, `no_trade_reason`, `faded_setups`, `psychology` + Daily Bias / HTF screenshots; asset/direction/pnl/R/$ are NULL, no entry models. Server normalises this in `tradeValues()` (`routes/trades.js`).
@@ -217,7 +239,7 @@ On the **Trades** page: download ZIP (DB + uploads) / restore ZIP with confirmat
 - **Return to the filtered view.** Dashboard and TradeList keep all filters (+ TradeList `page`) in URL params; `lastView.js` remembers the last `/dashboard` / `/trades` URL in sessionStorage (`rememberView` runs in `Layout`). Sidebar links, detail Back/Delete and TradeForm Save (edit) / Cancel (new) go to `viewUrl(path)` / `lastListUrl()` — don't hardcode `navigate('/dashboard')`. Calendar month is kept in sessionStorage `calMonth`.
 - **Dashboard stats are computed client-side from `displayTrades`** (`computeStats` in `components/dashboard/StatCards.jsx`).
 - **Screenshots served statically** at `/uploads/<filename>`; Vite proxies `/api` and `/uploads` → `:3001`.
-- **Asset list is hardcoded in 3 places:** `TradeForm.jsx` (`ASSETS`), `TradeList.jsx`, `Dashboard.jsx` filter. Update all when adding assets.
+- **Asset list is hardcoded in 3 places:** `TradeForm.jsx` (`ASSETS`), `TradeList.jsx`, `TradeFilters.jsx` (used by Dashboard + AI Analyst). Update all when adding assets.
 - **Use `ConfirmDialog`** for destructive actions, not `window.confirm`.
 - **Every new UI must work in both light and dark theme** (`dark:` variants, theme CSS variables, `useThemeColors`).
 

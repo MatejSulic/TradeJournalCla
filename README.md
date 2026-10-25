@@ -107,6 +107,16 @@ This starts:
 
 Open `http://localhost:5173` in your browser. The SQLite database is auto-created at `server/data/journal.db` on first run (migrations run automatically on startup).
 
+### AI Analyst (optional)
+
+The **AI Analyst** page lets you pick trades and chat about them with an LLM. Selected trades (text only, no screenshots) are sent to the provider.
+
+```bash
+cp .env.example .env     # then set GEMINI_API_KEY (or ANTHROPIC_API_KEY)
+```
+
+Restart the server; with Docker run `docker compose up -d --build`. Without a key the page shows a "not configured" notice. Optional `GEMINI_MODEL` / `ANTHROPIC_MODEL` override the defaults (`gemini-2.5-flash`, `claude-sonnet-5-5`).
+
 ### Build for production
 
 ```bash

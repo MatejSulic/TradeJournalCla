@@ -34,11 +34,12 @@ const PAGES = [
   }],
   ['series', '/series'],
   ['expenses', '/expenses'],
+  ['ai', '/ai'],
 ].filter(([name]) => !only || only.includes(name));
 
 const THEMES = ['light', 'dark'];
 const VIEWPORTS = [{ width: 1600, height: 900 }, { width: 1366, height: 768 }];
-const NO_SCROLL = new Set(['dashboard', 'new', 'newnotrade']);
+const NO_SCROLL = new Set(['dashboard', 'new', 'newnotrade', 'ai']);
 
 const now = new Date();
 const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
