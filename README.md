@@ -1,213 +1,296 @@
-# Ascend — Trading Journal
+<div align="center">
 
-> Log your trades. Review your patterns. Actually get better.
+# Ascend
 
----
-
-## What is this?
-
-Ascend is a personal trading journal I built to track my trades with more structure than a spreadsheet. You log each trade — what you entered, why, how it went, screenshots of the chart — and the dashboard gives you stats and charts to spot patterns in your performance.
-
-It runs entirely locally. No accounts, no subscriptions, no cloud. Your data stays on your machine.
-
-Built as a learning project to practice full-stack development with React + Node.js + SQLite.
-
----
-
-## Tech Stack
+**A local-first trading journal: log every trade, see your patterns, and ask an AI coach about them.**
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white&style=flat-square)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white&style=flat-square)
-![React Router](https://img.shields.io/badge/React_Router-v6-CA4245?logo=reactrouter&logoColor=white&style=flat-square)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v3-38B2AC?logo=tailwindcss&logoColor=white&style=flat-square)
-![Recharts](https://img.shields.io/badge/Recharts-2.12-22b5bf?style=flat-square)
-![date-fns](https://img.shields.io/badge/date--fns-3-770C56?style=flat-square)
-![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white&style=flat-square)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?logo=tailwindcss&logoColor=white&style=flat-square)
+![Express](https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white&style=flat-square)
 ![SQLite](https://img.shields.io/badge/SQLite-better--sqlite3-003B57?logo=sqlite&logoColor=white&style=flat-square)
-![Multer](https://img.shields.io/badge/Multer-file_uploads-ff6900?style=flat-square)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white&style=flat-square)
+![AI](https://img.shields.io/badge/AI-Gemini_%7C_Claude-8E75B2?style=flat-square)
 
-| Side | Stack |
-|------|-------|
-| Frontend | React 18, Vite, React Router v6 |
-| Styling | Tailwind CSS v3 (light + dark theme) |
-| Charts | Recharts (line, pie, bar) |
-| Backend | Node.js + Express |
-| Database | SQLite via `better-sqlite3` |
-| File uploads | Multer (screenshots stored locally) |
-| Backup | adm-zip (full DB + uploads export) |
-| Dev runner | concurrently |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/dashboard-dark.png">
+  <img src="docs/readme/dashboard-light.png" alt="Ascend dashboard: Net R, win rate, average R:R, average risk and total P&L cards, a cumulative R performance curve, a BE outcome gauge, win rate by day and a heatmap trading calendar" width="100%">
+</picture>
+
+<sub>All screenshots use generated demo data (98 trades, fictional prop firms, synthetic charts).</sub>
+
+</div>
+
+---
+
+## Why Ascend?
+
+Spreadsheets don't keep your chart screenshots, and journaling SaaS wants an account plus a monthly fee. Ascend runs on your own machine, with **no accounts, no cloud backend and no telemetry**. Trades, notes and screenshots stay in a local SQLite database and an uploads folder. One ZIP backs up everything.
+
+It's built around how discretionary futures traders review their trading: results in **R**, setups ("entry models") as tags, notes on psychology and premarket analysis for every trade, and **no-trade days** count as journal entries too.
 
 ---
 
 ## Features
 
-- **Trade logging** — asset, session type (live/backtest), direction (long/short), result (win/loss/breakeven), optional $ P&L, R:R ratio, risk amount (auto-calculated), entry time, risk management rating
-- **Entry models** — create custom setup tags (e.g. "Break & Retest", "FVG Fill") inline in the form and attach multiple to each trade; drag to reorder
-- **Trade notes** — three text fields per trade: why you entered, psychological state, and what to improve
-- **Screenshot uploads** — attach LTF chart, HTF chart, and daily bias screenshots per trade; view them in a lightbox
-- **Trade series** — group related trades into named series for campaign-style analysis
-- **Dashboard stats** — total trades (+ avg per week), win rate (+ net R), avg R:R, avg $ risk, W/L/BE results
-- **Performance curve** — equity score line chart showing progression over time
-- **Win rate donut** — at-a-glance win/loss/breakeven breakdown
-- **Win rate by day** — bar chart showing which days of the week you perform best on
-- **Trade calendar** — monthly view with daily results, $ P&L, weekly summaries and highlighted days when a prop account was passed
-- **Collapsible filters** — filter by session type, asset, series, direction, result, entry models (AND), date range and day of week; filters are kept in the URL
-- **Trade list** — paginated (25/page), filterable table
-- **Expenses** — track prop firm accounts (eval / funded / blown), purchase costs and payouts, net P&L, CSV export
-- **Gamification** — XP system, levels (Bronze → Legend), daily logging streak, 10 unlockable achievements
-- **Backup & restore** — download your entire database + screenshots as a ZIP, restore it anytime (on the Trades page)
-- **Light & dark mode** — toggle in the sidebar, remembered per browser
+### Journaling
+
+<img src="docs/readme/trade-form.png" alt="New Trade form with asset, direction, result and risk management buttons, R:R and PnL fields with auto-computed risk, entry model chips, four note fields and screenshot upload zones" width="100%">
+
+- **One-screen trade form.** Live / Backtest, asset (NQ, MNQ, ES, MES), direction, result (Win / Loss / Breakeven) and risk management (Low / Perfect / High) are button rows. Live summary chips sit in the header, and **Ctrl/Cmd + Enter** saves.
+- **R:R + P&L $ → risk**: enter the R:R and the dollar result, and Ascend works out the dollar risk for you.
+- **Breakeven outcome.** Tag a breakeven trade with what it *would* have become (BE → Win / BE → Loss).
+- **Entry models (setups)** are a multiselect. Create them inline in the form and drag to reorder them.
+- **Four note fields**: Premarket Analysis, Why I Entered, Psychology and Improvements.
+- **Screenshots**: Daily Bias, LTF and HTF zones. Paste with Ctrl+V while hovering a zone, drag & drop, or click to upload.
+- **No-trade days**: a header toggle switches the form to a day entry with *Why I didn't trade*, *Faded setups*, premarket and psychology notes. No-trade days appear on the calendar but don't touch your stats.
+- **Series**: group trades into named runs (e.g. an eval attempt or a backtest study) and filter by them.
+
+### Dashboard
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/readme/dashboard-filters.png" alt="Dashboard with the floating filters popover open"></td>
+    <td width="50%"><img src="docs/readme/calendar-month-stats.png" alt="Dashboard filtered to October 2026 with the calendar month picker open"></td>
+  </tr>
+  <tr>
+    <td><sub>Floating filters: asset, direction, result, series, dates, day of week, setups (AND)</sub></td>
+    <td><sub>Calendar <b>Stats</b>: the whole dashboard follows the month on screen, plus the month picker</sub></td>
+  </tr>
+</table>
+
+- **Live / Backtest / All** switch plus a floating filter panel. Filters live in the URL, so a filtered view can be bookmarked and Back returns to it.
+- **Stat cards**: Net R, Win Rate (with a W / L / BE bar), Avg R:R, Avg $ Risk and Total P&L $.
+- **Performance curve**: cumulative **R** (win = +R:R, loss = −1R) or a simple **Score** (+1 / −1).
+- **BE Outcome gauge**: how many of your breakevens would have turned into winners. Shares a card with **Top Setups**, which ranks entry models by win rate.
+- **Win Rate by Day**, Monday to Friday, with the best day highlighted.
+- **Heatmap trading calendar** with win / strong win / loss / BE tiles, weekly summaries, an optional $ P&L view, dashed *No trade* tiles and a month picker. A **PASS** ring marks the day a prop account was passed. Click a day to open its trade.
+
+### Trades list & detail
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/readme/trades-list.png" alt="Trades table with filters, setup chips, risk, R:R and result badges, plus Download and Restore buttons"></td>
+    <td width="50%"><img src="docs/readme/trade-detail.png" alt="Trade detail page with metrics, entry models, notes and daily bias, LTF and HTF screenshots"></td>
+  </tr>
+  <tr>
+    <td><sub>Filterable, paginated table (25 per page)</sub></td>
+    <td><sub>Read-only detail with notes and a screenshot lightbox</sub></td>
+  </tr>
+</table>
+
+### Prop firm expenses & payouts
+
+<img src="docs/readme/expenses.png" alt="Expenses page with net P&L, total spent, total payouts and active accounts, and a table of prop firm accounts with funded, eval and blown statuses" width="100%">
+
+Track every evaluation and funded account: firm, size, price, status (**eval → funded → blown**), passed / blown dates, notes and payouts. The summary shows total spent, total payouts, net P&L and active accounts, and the accounts export to CSV.
+
+### AI Analyst
+
+Pick a slice of your journal and ask questions about it in plain language.
+
+<img src="docs/readme/ai-new-analysis.png" alt="AI Analyst new analysis screen: filtered list of 47 trades and 5 no-trade days with checkboxes, a token estimate, suggestion chips and a question box" width="100%">
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/readme/ai-conversation-light.png" alt="AI answer with headings, numbered findings and clickable trade links"></td>
+    <td width="50%"><img src="docs/readme/ai-conversation-dark.png" alt="Follow-up answer in dark theme with a markdown comparison table"></td>
+  </tr>
+  <tr>
+    <td><sub>Markdown answer, with every cited trade a clickable <code>#id</code> link</sub></td>
+    <td><sub>Follow-ups in the same conversation (dark theme)</sub></td>
+  </tr>
+</table>
+
+- **Filter → select → ask.** Use the same filters as the dashboard, untick individual trades, and choose whether to include no-trade days. A live **token estimate** shows how big the request will be.
+- **Frozen snapshot.** The selected trades and notes are serialized once when the conversation starts, so follow-ups always discuss the same data even after you edit your journal.
+- **Streamed answers** over Server-Sent Events, rendered as markdown (tables included). Every trade the model cites as `#123` becomes a link to that trade.
+- **Grounded prompt.** The model must cite trade ids, flag small samples and never invent numbers. It answers in the language of your question.
+- **History.** Conversations are saved locally and can be renamed, deleted and continued later. Each one remembers its provider and model.
+- **Gemini or Claude**, chosen by which API key you set. The keys stay on the server and the browser never sees them.
+- **Text only.** Screenshots are never sent to the provider.
+
+### Backup, restore & themes
+
+- **Backup & restore**: on the Trades page, *Download* saves the database and all screenshots as one ZIP. *Restore* swaps it back in after a confirmation, with no restart needed.
+- **Light & dark theme**, toggled in the sidebar and remembered per browser. The sidebar collapses to an icon rail that slides out on hover and can be pinned.
 
 ---
 
-## Screenshots
+## Getting started
 
-**Dashboard**
-![Dashboard](screenshots/Screenshot%20from%202026-06-01%2011-37-30.png)
-
-**Dashboard — filters expanded**
-![Dashboard filters](screenshots/Screenshot%20from%202026-06-01%2011-37-40.png)
-
-**Trade List**
-![Trade List](screenshots/Screenshot%20from%202026-06-01%2011-37-47.png)
-
-**New Trade Form**
-![Trade Form](screenshots/Screenshot%20from%202026-06-01%2011-37-55.png)
-
----
-
-## Getting Started
-
-### Quick start
-
-Run `Spustit.sh` (Linux/macOS) or `Spustit.bat` (Windows) — it checks Node.js, installs dependencies on first run, starts the app and opens the browser.
-
-### Prerequisites
-
-- Node.js v18+
-- npm
-
-### Install & Run
+### Docker (recommended for daily use)
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/MatejSulic/ClaJournalApp.git
-cd ClaJournalApp
-
-# 2. Install all dependencies (root + server + client)
-npm run install:all
-
-# 3. Start the dev server
-npm run dev
+git clone https://github.com/MatejSulic/TradeJournalCla.git
+cd TradeJournalCla
+docker compose up -d --build
 ```
 
-This starts:
-- **Backend** on `http://localhost:3001`
-- **Frontend** on `http://localhost:5173`
+Open **http://localhost:7420**. A single container serves both the built client and the API. It's set to `restart: unless-stopped`, so it comes back after a reboot. `server/data` (database) and `server/uploads` (screenshots) are bind-mounted from the repo, so your data lives outside the container. After pulling new code, run `docker compose up -d --build` again.
 
-Open `http://localhost:5173` in your browser. The SQLite database is auto-created at `server/data/journal.db` on first run (migrations run automatically on startup).
+### Development mode
 
-### AI Analyst (optional)
-
-The **AI Analyst** page lets you pick trades and chat about them with an LLM. Selected trades (text only, no screenshots) are sent to the provider.
+Requires **Node.js 20.12+** (the Docker image uses Node 22) and npm.
 
 ```bash
-cp .env.example .env     # then set GEMINI_API_KEY (or ANTHROPIC_API_KEY)
+npm run install:all   # root + server + client dependencies
+npm run dev           # API on http://localhost:3001, client on http://localhost:5173
 ```
 
-Keep `.env` lines as bare `KEY=value` with comments on their own lines (docker compose treats an inline `# …` after an empty value as the value).
+Open http://localhost:5173. Vite proxies `/api` and `/uploads` to the server. The SQLite database is created at `server/data/journal.db` on first run, and migrations run automatically on startup.
 
-Restart the server; with Docker run `docker compose up -d --build`. Without a key the page shows a "not configured" notice. Optional `GEMINI_MODEL` / `ANTHROPIC_MODEL` override the defaults (`gemini-3.8-flash`, `claude-sonnet-5-5`).
+> Docker and dev mode share the same database. Stop one (`docker compose stop`) before starting the other.
 
-### Build for production
+### One-click launchers
+
+`Spustit.sh` (Linux/macOS) and `Spustit.bat` (Windows) check for Node.js, install dependencies on first run, start the app and open your browser.
+
+### AI Analyst setup (optional)
 
 ```bash
-cd client
-npm run build
+cp .env.example .env
 ```
 
-The static output lands in `client/dist/`. Serve it with any static host alongside the Express backend.
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` | Gemini key (the free tier works) |
+| `ANTHROPIC_API_KEY` | Claude key (optional) |
+| `GEMINI_MODEL` / `ANTHROPIC_MODEL` | Model overrides (defaults: `gemini-3.8-flash`, `claude-sonnet-5-5`) |
+| `AI_PROVIDER` | Force `gemini` or `anthropic` (only used if that key is set) |
+
+If both keys are set, **Claude is the default** unless `AI_PROVIDER` says otherwise. Keep each line as bare `KEY=value` with comments on their own lines: docker compose treats an inline `# …` after an empty value as the value itself. Then restart the server (`docker compose up -d --build` for Docker). Without a key, the AI page shows a "not configured" notice and the rest of the app works normally.
 
 ---
 
-## Project Structure
+## Privacy
 
-```
-ClaJournalApp/
-├── package.json              # Root — runs server + client via concurrently
-├── Spustit.sh / Spustit.bat  # One-click launchers
-│
-├── client/                   # React frontend (Vite)
-│   └── src/
-│       ├── api.js            # All fetch calls to /api/*
-│       ├── App.jsx           # Route definitions
-│       ├── contexts/
-│       │   └── ThemeContext.jsx    # Light / dark mode
-│       ├── components/
-│       │   ├── Layout.jsx          # Sidebar nav, theme toggle, XP summary
-│       │   ├── TradeCalendar.jsx   # Monthly trade calendar
-│       │   ├── StatCard.jsx        # Reusable stat display card
-│       │   ├── ConfirmDialog.jsx   # Confirmation modal
-│       │   ├── XPBar.jsx / LevelBadge.jsx / XPToast.jsx
-│       │   └── DatePicker.jsx
-│       ├── hooks/
-│       │   ├── useGamification.js  # XP / level / streak data
-│       │   └── useThemeColors.js   # Theme-aware chart colors
-│       └── pages/
-│           ├── Dashboard.jsx   # Stats, charts, calendar, filters
-│           ├── TradeForm.jsx   # Create / edit trade
-│           ├── TradeDetail.jsx # Read-only trade view + lightbox
-│           ├── TradeList.jsx   # Paginated table, backup / restore
-│           ├── Series.jsx      # Trade series management
-│           ├── Expenses.jsx    # Prop firm accounts & payouts
-│           └── Profile.jsx     # Gamification stats + achievements
-│
-└── server/                   # Express backend
-    ├── index.js              # App entry, mounts routes
-    ├── db.js                 # SQLite schema + migrations + achievement seeding
-    ├── gamification.js       # XP / level / streak / achievement logic
-    ├── data/journal.db       # SQLite DB (auto-created)
-    ├── uploads/              # Uploaded screenshots (gitignored)
-    └── routes/
-        ├── trades.js         # Trade CRUD, /stats, /equity
-        ├── entryModels.js    # Entry model tags (+ reorder)
-        ├── series.js         # Trade series CRUD
-        ├── expenses.js       # Prop accounts + payouts
-        ├── gamification.js   # Profile + level endpoints
-        └── backup.js         # ZIP backup download + restore
-```
+- Everything runs locally: the database, the screenshots and the AI conversation history.
+- No accounts and no analytics. The only outside requests are the Inter web font (Google Fonts) and, **when you ask the AI Analyst a question**, the **text** of the trades and no-trade days you selected (fields and notes, never screenshots) goes to the provider you configured.
+- The API only accepts same-origin requests, so other websites can't trigger writes or spend your AI quota. Docker binds the port to `127.0.0.1` only.
 
 ---
 
-## Database Schema
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Vite 5, React Router 6 |
+| Styling | Tailwind CSS 3 with CSS-variable theme tokens (light + dark) |
+| Charts | Recharts (area, bar), plus custom SVG/CSS gauge and calendar |
+| Markdown | react-markdown + remark-gfm (AI answers) |
+| Backend | Node.js, Express 4 |
+| Database | SQLite via better-sqlite3 (WAL mode, foreign keys on) |
+| Uploads / backup | Multer (20 MB per screenshot), adm-zip |
+| AI | `@google/genai`, `@anthropic-ai/sdk`, streamed to the client over SSE |
+| Runtime | Docker (single container) or `concurrently` in dev |
+
+### Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    UI["React client<br/>(Vite build)"]
+  end
+  subgraph Server["Express server :3001"]
+    API["/api routes<br/>trades · series · entry models<br/>expenses · backup · ai"]
+    AI["AI adapters<br/>context builder + prompt"]
+  end
+  DB[("SQLite<br/>server/data/journal.db")]
+  FS[["server/uploads<br/>screenshots"]]
+  G["Gemini API"]
+  C["Anthropic API"]
+
+  UI -- "fetch JSON / multipart" --> API
+  API -- "SSE stream" --> UI
+  API --> DB
+  API --> FS
+  API --> AI
+  AI --> G
+  AI --> C
+```
+
+The client is a single-page app. All dashboard stats are computed in the browser from the filtered trade list. The server is a thin REST layer over SQLite and also serves the built client and the screenshots. Schema changes are idempotent migrations that run at startup, so old databases and restored backups upgrade automatically.
+
+<details>
+<summary><b>Project structure</b></summary>
+
+```
+TradeJournalCla/
+├── docker-compose.yml / Dockerfile   # single-container build (client + API) on :7420
+├── Spustit.sh / Spustit.bat          # one-click launchers
+├── .env.example                      # AI provider keys / model overrides
+├── client/src/
+│   ├── App.jsx                       # routes
+│   ├── api.js                        # all /api calls
+│   ├── pages/                        # Dashboard, TradeForm, TradeDetail, TradeList,
+│   │                                 # Series, Expenses, AiAnalyst
+│   ├── components/
+│   │   ├── dashboard/                # StatCards, PerformanceCurve, TopSetups, BeOutcome, WinRateByDay
+│   │   ├── ai/                       # ConversationList, SelectionList, ChatMessages, Composer, Markdown
+│   │   ├── TradeCalendar.jsx         # heatmap calendar + month picker
+│   │   ├── TradeFilters.jsx, Layout.jsx, ConfirmDialog.jsx, DatePicker.jsx, Logo.jsx
+│   ├── contexts/ThemeContext.jsx     # light / dark
+│   └── hooks/useThemeColors.js       # theme-aware chart colors
+├── server/
+│   ├── index.js                      # Express entry, same-origin guard, static client + uploads
+│   ├── db.js                         # schema, migrations, reinitDb() after restore
+│   ├── routes/                       # trades, entryModels, series, expenses, backup, ai
+│   ├── ai/                           # gemini, anthropic, mock adapters; context.js; prompt.js
+│   ├── test/                         # node:test unit tests
+│   ├── data/                         # SQLite DB (bind-mounted in Docker)
+│   └── uploads/                      # screenshots (gitignored)
+├── scripts/dev/                      # api-smoke.sh, screenshots.mjs, demo-data.mjs
+└── docs/readme/                      # README screenshots
+```
+
+</details>
+
+<details>
+<summary><b>Data model</b></summary>
 
 ```sql
-series              (id, name, description, created_at, updated_at)
-entry_models        (id, name UNIQUE, sort_order)
-trades              (id, asset, session_type, series_id, direction, pnl,
+trades              (id, day_type, asset, session_type, series_id, direction, pnl, be_outcome,
                      risk_reward, risk_amount, pnl_dollars, entry_time,
-                     why_entered, psychology, improvements,
-                     risk_management, created_at, updated_at)
-trade_entry_models  (trade_id, entry_model_id)   -- junction table, multiselect
+                     premarket_analysis, why_entered, no_trade_reason, faded_setups,
+                     psychology, improvements, risk_management, created_at, updated_at)
+entry_models        (id, name UNIQUE, sort_order)
+trade_entry_models  (trade_id, entry_model_id)          -- many-to-many
 screenshots         (id, trade_id, type, filename, original_name, created_at)
+series              (id, name UNIQUE, description, created_at, updated_at)
 prop_accounts       (id, firm_name, account_size, purchase_price, status,
-                     purchased_at, passed_at, blown_at, notes, ...)
+                     purchased_at, passed_at, blown_at, notes, created_at, updated_at)
 prop_payouts        (id, account_id, amount, payout_date, notes, created_at)
-player_profile      (user_id, xp, level, streak_days, last_trade_date, ...)
-achievements        (key, name, description, icon, xp_reward)
-player_achievements (user_id, achievement_key, trade_id, unlocked_at)
-xp_log              (user_id, trade_id, source, amount, created_at)
+ai_conversations    (id, title, provider, model, filters, context,
+                     trade_count, notrade_count, created_at, updated_at)
+ai_messages         (id, conversation_id, role, content, created_at)
 ```
+
+- `day_type` is `trade` or `notrade`. Trade fields are required only for trades.
+- `pnl` is the **result** (`win` / `loss` / `breakeven`). Money lives in the optional `pnl_dollars`.
+- `screenshots.type` is `daily_bias`, `ltf` or `htf`. `prop_accounts.status` is `eval`, `funded` or `blown`.
+- `ai_conversations.context` holds the frozen text snapshot the conversation is about.
+
+</details>
+
+### Tests & dev scripts
+
+| Command | What it does |
+|---|---|
+| `cd server && npm test` | Unit tests (`node --test`): AI context builder, provider selection, paths, same-origin guard |
+| `scripts/dev/api-smoke.sh [db]` | Boots a scratch copy of the server on a **copy** of a DB (port 3999) and checks trade / no-trade CRUD |
+| `node scripts/dev/screenshots.mjs <outDir> [baseUrl]` | Playwright screenshots of every page in light/dark at two viewports. Blocks writes and fails on console errors, `NaN` or unwanted page scroll |
+| `node scripts/dev/demo-data.mjs <baseUrl> <scratchDb>` | Fills a **scratch** server with deterministic demo data (the data in these screenshots). Refuses to run against the real DB |
 
 ---
 
-## What I Learned
+## What I learned
 
-- **SQLite is genuinely good for local apps.** `better-sqlite3`'s synchronous API made the server code much simpler than async alternatives. WAL mode handles concurrent reads without any extra configuration.
-- **Recharts needs explicit pixel heights.** `height="100%"` silently renders nothing unless the parent has a fixed pixel height. Learned this the hard way and it's now the first thing I check when a chart disappears.
-- **Client-side filtering on top of server data is a valid pattern.** The day-of-week filter runs entirely in the browser after the server fetch — no need to add a server query parameter for every filter dimension.
-- **Gamification mechanics are harder to design than to implement.** Writing the XP logic took an afternoon. Deciding *what* to reward (consistency, reflection quality, risk discipline vs. just wins) took much longer and required iterating on the feel of it.
-- **CSS `grid-template-rows: 0fr / 1fr` is an underrated collapsible trick.** No JavaScript height calculations, no resize observers, no libraries — the transition just works and adapts to content length automatically.
+- **SQLite is genuinely good for local apps.** `better-sqlite3`'s synchronous API keeps the server code simple, and WAL mode handles concurrent reads with no extra setup.
+- **Recharts needs a real height.** `height="100%"` renders nothing unless every ancestor has a resolved height. It's the first thing I check when a chart disappears.
+- **Client-side filtering on top of server data is a valid pattern.** The day-of-week filter and all dashboard stats run in the browser after a single fetch.
+- **LLM features need guard rails more than prompts.** Freezing the context per conversation, keeping keys server-side, blocking cross-origin writes and making the model cite `#id`s mattered more than prompt wording.
+- **CSS `grid-template-rows: 0fr / 1fr` is an underrated collapsible trick.** No JavaScript height maths, and it adapts to content automatically.
 
 ---
 
@@ -217,12 +300,10 @@ xp_log              (user_id, trade_id, source, amount, created_at)
 
 [GitHub](https://github.com/MatejSulic) · [LinkedIn](https://linkedin.com/in/matej-sulic) · sul.matej@gmail.com
 
----
-
 ## License
 
-Personal use and learning project. No license — do what you want with it.
+A personal use and learning project. There is no license file, so do what you want with it.
 
 ---
 
-*Partly vibe coded with [Anthropic Claude](https://claude.ai).*
+<sub>Partly vibe coded with <a href="https://claude.ai">Anthropic Claude</a>.</sub>
