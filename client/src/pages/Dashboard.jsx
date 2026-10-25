@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { parseISO, getDay } from 'date-fns';
 import { getTrades, getEntryModels, getSeries, reorderEntryModels, getExpenseAccounts } from '../api';
@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [dropIndex, setDropIndex] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [panelSettled, setPanelSettled] = useState(false);
+  const filtersBtnRef = useRef(null);
+  const filtersPanelRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters = {
@@ -131,9 +133,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!filtersOpen) return;
-    const onKey = (e) => { if (e.key === 'Escape') { setPanelSettled(false); setFiltersOpen(false); } };
+    const close = () => { setPanelSettled(false); setFiltersOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    // Click anywhere outside the panel closes it (the Filters button toggles on its own; DatePicker popup is portalled to body)
+    const onPointerDown = (e) => {
+      const t = e.target;
+      if (filtersPanelRef.current?.contains(t) || filtersBtnRef.current?.contains(t) || t.closest?.('#dp-portal')) return;
+      close();
+    };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
   }, [filtersOpen]);
 
   return (
@@ -158,7 +171,7 @@ export default function Dashboard() {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={toggleFilters} className={`btn-secondary ${filtersOpen ? '!bg-surface-raised' : ''}`} aria-expanded={filtersOpen}>
+            <button ref={filtersBtnRef} type="button" onClick={toggleFilters} className={`btn-secondary ${filtersOpen ? '!bg-surface-raised' : ''}`} aria-expanded={filtersOpen}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M7 12h10M10 18h4" />
               </svg>
@@ -210,7 +223,7 @@ export default function Dashboard() {
         >
           <div className={filtersOpen && panelSettled ? 'overflow-visible' : 'overflow-hidden'}>
             <div className="pt-3 pb-8 -mx-4 px-4">
-              <div className="card pointer-events-auto !p-5 space-y-4 !shadow-2xl dark:!shadow-black/40 dark:ring-1 dark:ring-surface-border">
+              <div ref={filtersPanelRef} className="card pointer-events-auto !p-5 space-y-4 !shadow-2xl dark:!shadow-black/40 dark:ring-1 dark:ring-surface-border">
                 <div className="grid grid-cols-4 gap-x-4 gap-y-3">
                   <div>
                     <label className="label">Asset</label>
