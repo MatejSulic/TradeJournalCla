@@ -40,7 +40,11 @@ const COMPONENTS = {
     if (rest['data-trade-ref']) {
       return <Link to={`/trades/${rest['data-trade-ref']}`} className="text-accent font-medium">{children}</Link>;
     }
-    return <a href={href} target="_blank" rel="noreferrer" className="text-accent underline underline-offset-2">{children}</a>;
+    return <a href={href} target="_blank" rel="noreferrer noopener" className="text-accent underline underline-offset-2">{children}</a>;
+  },
+  // Never load remote images from model output (`![x](https://host/?q=…)` would leak data on render)
+  img({ node, src, alt }) {
+    return <a href={src} target="_blank" rel="noreferrer noopener" className="text-accent underline underline-offset-2">{alt || src}</a>;
   },
   h1: ({ node, ...p }) => <h3 className="mt-4 mb-2 first:mt-0 text-base font-semibold text-slate-900 dark:text-white" {...p} />,
   h2: ({ node, ...p }) => <h3 className="mt-4 mb-2 first:mt-0 text-base font-semibold text-slate-900 dark:text-white" {...p} />,
