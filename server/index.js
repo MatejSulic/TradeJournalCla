@@ -1,13 +1,18 @@
 // Load .env (repo root) before anything reads process.env; missing file is fine
 const path = require('path');
-try { process.loadEnvFile(path.join(__dirname, '..', '.env')); } catch {}
+if (typeof process.loadEnvFile !== 'function') {
+  console.warn(`process.loadEnvFile is not available in Node ${process.version} (needs >= 20.12): .env is not loaded`);
+} else {
+  try { process.loadEnvFile(path.join(__dirname, '..', '.env')); } catch {}
+}
 
 const express = require('express');
-const cors = require('cors');
 
 const app = express();
 
-app.use(cors());
+// No CORS: the client is same-origin (Docker) or proxied by Vite (dev). Cross-origin
+// pages must not be able to call /api/ai/* and spend the user's API quota.
+app.use('/api', require('./sameOrigin').sameOriginOnly);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
