@@ -23,16 +23,23 @@ A new page where the user filters their journal (same filters as the Dashboard),
 `.env` in the repo root (gitignored, added to `.gitignore`):
 
 ```
+# comments on their own lines only (docker compose keeps an inline "# ..." after an empty value as the value)
 GEMINI_API_KEY=...
-ANTHROPIC_API_KEY=...                 # optional
-GEMINI_MODEL=gemini-2.5-flash         # optional override
-ANTHROPIC_MODEL=claude-sonnet-5-5     # optional override
-AI_PROVIDER=                          # optional force: gemini | anthropic | mock
+# optional
+ANTHROPIC_API_KEY=...
+# optional overrides
+GEMINI_MODEL=gemini-2.5-flash
+ANTHROPIC_MODEL=claude-sonnet-5-5
+# optional force: gemini | anthropic | mock (only used if its key is set)
+AI_PROVIDER=
 ```
+
+- Values are trimmed; empty or `#`-prefixed values are treated as unset.
 
 - Server loads it at startup with Node 22's built-in `process.loadEnvFile()` (wrapped in try — missing file is fine). Path: repo root `.env` (`path.join(__dirname, '..', '.env')`).
 - Docker: `docker-compose.yml` gets `env_file: [{ path: .env, required: false }]`.
-- Provider selection: `AI_PROVIDER` if set; else **anthropic** if its key is set; else **gemini** if its key is set; else none. The provider + model used are stored on each conversation; follow-ups use the conversation's provider (error if its key has since been removed).
+- Provider selection: `AI_PROVIDER` if set; else **anthropic** if its key is set; else **gemini** if its key is set; else none. The provider + model used are stored on each conversation; follow-ups use the conversation's provider **and stored model** (error if its key has since been removed).
+- No CORS; cross-origin non-GET `/api` requests get 403 (`server/sameOrigin.js`).
 - `mock` provider (tests only): streams a canned answer containing a `#id` reference, no network.
 
 ## Backend
