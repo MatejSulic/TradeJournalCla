@@ -32,6 +32,18 @@ const PAGES = [
   ['newnotrade', '/trades/new', async page => {
     await page.getByRole('button', { name: 'No-trade day' }).click();
   }],
+  // First strategy selected + submit → client-side "rules unmet" error (no request is sent)
+  ['newstrategy', '/trades/new', async page => {
+    const select = page.locator('label:text-is("Strategy") + select');
+    const value = await select.locator('option').nth(1).getAttribute('value', { timeout: 3000 }).catch(() => null);
+    if (!value) return;
+    await select.selectOption(value);
+    await page.getByRole('button', { name: /Add Trade/ }).click();
+    await page.getByText('Other entry models').scrollIntoViewIfNeeded();
+  }],
+  ['dashboard-strategies', '/dashboard', async page => {
+    await page.getByRole('button', { name: 'Strategies', exact: true }).click();
+  }],
   ['series', '/series'],
   ['strategies', '/strategies'],
   ['expenses', '/expenses'],
@@ -40,7 +52,7 @@ const PAGES = [
 
 const THEMES = ['light', 'dark'];
 const VIEWPORTS = [{ width: 1600, height: 900 }, { width: 1366, height: 768 }];
-const NO_SCROLL = new Set(['dashboard', 'new', 'newnotrade', 'ai']);
+const NO_SCROLL = new Set(['dashboard', 'dashboard-strategies', 'new', 'newnotrade', 'newstrategy', 'ai']);
 
 const now = new Date();
 const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;

@@ -44,6 +44,7 @@ It's built around how discretionary futures traders review their trading: result
 - **Four note fields**: Premarket Analysis, Why I Entered, Psychology and Improvements.
 - **Screenshots**: Daily Bias, LTF and HTF zones. Paste with Ctrl+V while hovering a zone, drag & drop, or click to upload.
 - **No-trade days**: a header toggle switches the form to a day entry with *Why I didn't trade*, *Faded setups*, premarket and psychology notes. No-trade days appear on the calendar but don't touch your stats.
+- **Strategy Lab**: build strategies as checklists of entry models. A rule can be one model or "any of" a group (e.g. IFVG / CISD). Pick a strategy on a trade and it can only be saved once every rule is ticked; the last used strategy is preselected. Filter and compare strategies on the dashboard.
 - **Series**: group trades into named runs (e.g. an eval attempt or a backtest study) and filter by them.
 
 ### Dashboard
@@ -62,7 +63,7 @@ It's built around how discretionary futures traders review their trading: result
 - **Live / Backtest / All** switch plus a floating filter panel. Filters live in the URL, so a filtered view can be bookmarked and Back returns to it.
 - **Stat cards**: Net R, Win Rate (with a W / L / BE bar), Avg R:R, Avg $ Risk and Total P&L $.
 - **Performance curve**: cumulative **R** (win = +R:R, loss = −1R) or a simple **Score** (+1 / −1).
-- **BE Outcome gauge**: how many of your breakevens would have turned into winners. Shares a card with **Top Setups**, which ranks entry models by win rate.
+- **BE Outcome gauge**: how many of your breakevens would have turned into winners. Shares a card with **Top Setups**, which ranks entry models by win rate, and **Strategies** (win rate, Net R and trade count per strategy).
 - **Win Rate by Day**, Monday to Friday, with the best day highlighted.
 - **Heatmap trading calendar** with win / strong win / loss / BE tiles, weekly summaries, an optional $ P&L view, dashed *No trade* tiles and a month picker. A **PASS** ring marks the day a prop account was passed. Click a day to open its trade.
 

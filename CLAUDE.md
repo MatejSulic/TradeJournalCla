@@ -51,7 +51,8 @@ TradeJournalCla/
 │   │   ├── components/
 │   │   │   ├── Layout.jsx        # Collapsible sidebar (icon rail → hover slide-out overlay, pin persisted in localStorage 'sidebarPinned'), SVG logo, nav, theme toggle
 │   │   │   ├── TradeCalendar.jsx # Heatmap month calendar of trades + no-trade days + weekly summary column
-│   │   │   ├── dashboard/        # StatCards (+ computeStats), PerformanceCurve, TopSetups (+ BeOutcome tab), WinRateByDay
+│   │   │   ├── dashboard/        # StatCards (+ computeStats), PerformanceCurve, TopSetups (+ BeOutcome tab, Strategies tab), WinRateByDay
+│   │   │   ├── StrategyChecklist.jsx # Strategy rules as checklist rows in TradeForm
 │   │   │   ├── TradeFilters.jsx  # useTradeFilters hook + filters UI (popover, chips, asset list), shared by Dashboard and AI Analyst
 │   │   │   ├── ai/               # ConversationList, SelectionList, Composer, ChatMessages, Markdown (react-markdown + remark-gfm)
 │   │   │   ├── Logo.jsx          # Ascend mark as inline SVG (currentColor)
@@ -63,6 +64,7 @@ TradeJournalCla/
 │   │       ├── TradeDetail.jsx # Read-only trade view with screenshots + lightbox
 │   │       ├── TradeList.jsx   # Filterable + paginated table (25/page), backup download/restore
 │   │       ├── Series.jsx      # Trade series CRUD
+│   │       ├── StrategyLab.jsx # Strategies CRUD (rules from entry models), archive
 │   │       ├── Expenses.jsx    # Prop firm accounts + payouts, CSV export
 │   │       └── AiAnalyst.jsx   # AI Analyst: conversation list, trade selection, streaming chat
 │   ├── tailwind.config.js
@@ -80,20 +82,22 @@ TradeJournalCla/
 │       ├── trades.js         # CRUD (trades + no-trade days)
 │       ├── entryModels.js    # GET / POST / PATCH /reorder / DELETE
 │       ├── series.js         # CRUD
+│       ├── strategies.js     # CRUD (logic in server/strategyStore.js; rule check in server/strategyRules.js, mirrored in client/src/strategyRules.js)
 │       ├── expenses.js       # Prop accounts + payouts
 │       ├── ai.js             # AI Analyst: status, estimate, conversations, SSE messages
 │       └── backup.js         # GET = download ZIP, POST = restore ZIP
 ```
 
 ### Routes (client)
-`/dashboard`, `/trades`, `/trades/new`, `/trades/:id`, `/trades/:id/edit`, `/series`, `/expenses`, `/ai`, `/ai/:id` (`/` and unknown paths → `/dashboard`).
+`/dashboard`, `/trades`, `/trades/new`, `/trades/:id`, `/trades/:id/edit`, `/series`, `/strategies`, `/expenses`, `/ai`, `/ai/:id` (`/` and unknown paths → `/dashboard`).
 
 ### API (server)
 | Prefix | Endpoints |
 |---|---|
-| `/api/trades` | `GET /` (filters: asset, session_type, series_id, direction, pnl — also `be_win` / `be_loss`, entry_model_id[], from, to), `day_type` (trade default / notrade / all), `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id` — POST/PUT are multipart (screenshots) |
+| `/api/trades` | `GET /` (filters: asset, session_type, series_id, strategy_id, direction, pnl — also `be_win` / `be_loss`, entry_model_id[], from, to), `day_type` (trade default / notrade / all), `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id` — POST/PUT are multipart (screenshots) |
 | `/api/entry-models` | `GET /`, `POST /`, `PATCH /reorder`, `DELETE /:id` |
 | `/api/series` | `GET /`, `POST /`, `PUT /:id`, `DELETE /:id` |
+| `/api/strategies` | `GET /` (incl. `rules[].options[]`, `trade_count`, `archived`), `GET /:id`, `POST /`, `PUT /:id` (body `{name, description, archived, rules: [{label, entry_model_ids}]}`, rules replaced as a whole), `DELETE /:id` |
 | `/api/expenses` | `GET /accounts` (incl. `total_payouts`), `POST /accounts`, `PUT /accounts/:id`, `DELETE /accounts/:id`, `POST /accounts/:id/payouts`, `DELETE /payouts/:id` |
 | `/api/ai` | `GET /status` (providers + default, never keys), `POST /estimate` (token estimate for a selection), `GET/POST /conversations` (POST → 201 + conversation), `GET/PATCH/DELETE /conversations/:id`, `POST /conversations/:id/messages` (SSE `delta`/`done`/`error`; `{retry:true}` re-asks the last user message; 409 when busy or provider unavailable) |
 | `/api/backup` | `GET /` (ZIP download), `POST /` (field `backup`, restores DB + uploads, calls `reinitDb()`) |
@@ -105,7 +109,10 @@ TradeJournalCla/
 ```sql
 series              (id, name UNIQUE, description, created_at, updated_at)
 entry_models        (id, name UNIQUE, sort_order)
-trades              (id, day_type, asset, session_type, series_id, direction, pnl, be_outcome,
+strategies          (id, name UNIQUE, description, archived, created_at, updated_at)
+strategy_rules      (id, strategy_id → strategies CASCADE, label, sort_order)
+strategy_rule_options (rule_id → strategy_rules CASCADE, entry_model_id → entry_models CASCADE)
+trades              (id, day_type, asset, session_type, series_id, strategy_id, direction, pnl, be_outcome,
                      risk_reward, risk_amount, pnl_dollars, entry_time,
                      premarket_analysis, why_entered, no_trade_reason, faded_setups,
                      psychology, improvements, risk_management, created_at, updated_at)
@@ -182,7 +189,7 @@ Empty filter results render `—` (never NaN).
 
 ### Layout below stats
 Two equal columns filling the remaining viewport height (`flex-1 min-h-0`):
-- **Left:** **Performance** (`PerformanceCurve.jsx`, monotone area, **R (default) / Score** toggle persisted in localStorage `perfMode`: score = +1 win / −1 loss, R = win +R:R / loss −1R (ends at Net R); sorted by `created_at`, current value top-right) above **Top Setups** (`TopSetups.jsx`, tabs **BE Outcome (default) / Top Setups** persisted in localStorage `setupsTab`; setups = entry models ranked by win rate with progress bars + trade count, <50% in loss colour; BE Outcome = `BeOutcome.jsx` semicircle tick gauge, % of breakevens with `be_outcome` that would be a win, + →W / →L / untagged counts) and **Win Rate by Day** (`WinRateByDay.jsx`, Mon–Fri, neutral bars, best day solid accent).
+- **Left:** **Performance** (`PerformanceCurve.jsx`, monotone area, **R (default) / Score** toggle persisted in localStorage `perfMode`: score = +1 win / −1 loss, R = win +R:R / loss −1R (ends at Net R); sorted by `created_at`, current value top-right) above **Top Setups** (`TopSetups.jsx`, tabs **BE Outcome (default) / Top Setups / Strategies** persisted in localStorage `setupsTab`; setups = entry models ranked by win rate with progress bars + trade count, <50% in loss colour; BE Outcome = `BeOutcome.jsx` semicircle tick gauge, % of breakevens with `be_outcome` that would be a win, + →W / →L / untagged counts) and **Win Rate by Day** (`WinRateByDay.jsx`, Mon–Fri, neutral bars, best day solid accent).
 - **Right:** **TradeCalendar** heatmap — rounded day tiles (win `accent-soft`, strong win = net R ≥ 2 or ≥2 wins & 0 losses → solid accent, loss tint, BE neutral, out-of-month hatched), weekly summary column (`W{isoWeek}`), optional $ P&L toggle, dashed NO TRADE tiles, PASS ring for winning days where a prop account was **passed** (`passed_at`). Click day → trade detail (1 trade) or popup list (more). Header: ‹ › month arrows, clickable month label → **MonthPicker** popover (year arrows + 12-month grid, dot = month with logged days), **Today**, **Stats** (sets `from`/`to` to the shown month; while on, month navigation moves the range; whole-month range shows as one chip `October 2026`), **P&L** toggle.
 
 ### Chart heights
@@ -202,6 +209,15 @@ Page `/ai` (`/ai/:id`): pick trades (shared `TradeFilters` + checkbox list, **in
 - **No CORS:** the server sends no CORS headers (client is same-origin in Docker, proxied by Vite in dev) and `server/sameOrigin.js` rejects cross-origin non-GET `/api` requests with 403 (`Sec-Fetch-Site` / `Origin` vs `Host`), so other websites can't spend the AI quota or restore a backup. curl/scripts (no such headers) are allowed.
 - **Testing:** never against the real DB — scratch server (`DB_PATH` + `AI_PROVIDER=mock`) or `api-smoke.sh`.
 
+## Strategies
+
+A strategy (Strategy Lab, `/strategies`) is a list of **rules**; a rule is a set of entry models (**options**) and is met when the trade has **at least one** of them (more is fine). One option = "must have", several = "any of" (e.g. `Entry model: IFVG / CISD`).
+- `trades.strategy_id` is optional (`ON DELETE SET NULL`); no-trade days never have one. Ticked options are ordinary `trade_entry_models` rows; extra entry models outside the strategy are allowed.
+- Server rejects POST/PUT with unmet rules (400 `Strategy rules not met: …`), checked against the strategy's **current** rules (editing an old trade re-checks it). Archived strategies are still accepted on trades but hidden from the TradeForm select (except the trade's own).
+- Deleting an entry model also deletes rules left with no option. Deleting a strategy keeps its trades.
+- TradeForm: Strategy select (new trade prefilled from localStorage `lastStrategyId`, set on save) → `StrategyChecklist` + "Other entry models" (drag-reorder only with Strategy = None).
+- `GET /api/trades?strategy_id=<id>|none`; filter in TradeFilters (Dashboard + AI) and TradeList; Strategy column in TradeList; pill in TradeDetail; `Strategy: <name>` in AI context; Dashboard Top Setups card has a **Strategies** tab (win rate, Net R, trades, "No strategy" row).
+
 ## No-trade days
 
 A logged day without a trade = row in `trades` with `day_type = 'notrade'`: only `entry_time` (date), `premarket_analysis`, `no_trade_reason`, `faded_setups`, `psychology` + Daily Bias / HTF screenshots; asset/direction/pnl/R/$ are NULL, no entry models. Server normalises this in `tradeValues()` (`routes/trades.js`).
@@ -213,7 +229,7 @@ A logged day without a trade = row in `trades` with `day_type = 'notrade'`: only
 ## TradeForm layout
 
 - Page fits viewport (no page scroll): header + 3-column grid `minmax(300px,1fr) | minmax(0,1.7fr) | minmax(260px,1fr)` with `gridTemplateRows: minmax(0,1fr)`; columns 1 and 3 scroll internally.
-- **Col 1:** Trade Info (Live/Backtest toggle, Asset / Direction / Result / Risk Management as `Segmented` button rows, Entry Time, R:R + PnL $ → computed risk, Series select) + Entry Models (drag-reorder, inline add/delete).
+- **Col 1:** Trade Info (Live/Backtest toggle, Asset / Direction / Result / Risk Management as `Segmented` button rows, Entry Time, R:R + PnL $ → computed risk, Series select) + Entry Models (Strategy select + checklist, drag-reorder, inline add/delete).
 - **Col 2:** Notes in a 2×2 grid — Premarket Analysis | Why I Entered / Psychology | Improvements.
 - **Col 3:** Screenshots — existing shots (mark for delete) + 3 `UploadZone`s; paste works on **hover** (document-level paste listener), click, drag & drop.
 - Header shows live summary chips (asset, direction, result, R) and validation error; **Ctrl/Cmd+Enter** submits.
