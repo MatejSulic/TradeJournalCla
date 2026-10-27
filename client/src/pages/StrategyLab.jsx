@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getStrategies, createStrategy, updateStrategy, deleteStrategy, getEntryModels, createEntryModel } from '../api';
 import { ruleLabel } from '../strategyRules';
@@ -22,6 +22,7 @@ export default function StrategyLab() {
   const [showArchived, setShowArchived] = useState(false);
   const [newModelName, setNewModelName] = useState('');
   const [modelError, setModelError] = useState('');
+  const [activeKey, setActiveKey] = useState(null); // rule that receives clicks from the entry model palette
 
   useEffect(() => {
     Promise.all([getStrategies(), getEntryModels()])
@@ -35,7 +36,9 @@ export default function StrategyLab() {
 
   function openCreate() {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, rules: [newRule()] });
+    const first = newRule();
+    setForm({ ...EMPTY_FORM, rules: [first] });
+    setActiveKey(first.key);
     setError('');
     setModelError('');
     setShowForm(true);
@@ -43,11 +46,9 @@ export default function StrategyLab() {
 
   function openEdit(s) {
     setEditingId(s.id);
-    setForm({
-      name: s.name,
-      description: s.description || '',
-      rules: s.rules.map(r => newRule(r.label || '', r.options.map(o => o.id))),
-    });
+    const rules = s.rules.map(r => newRule(r.label || '', r.options.map(o => o.id)));
+    setForm({ name: s.name, description: s.description || '', rules });
+    setActiveKey(rules[0]?.key ?? null);
     setError('');
     setModelError('');
     setShowForm(true);
@@ -68,6 +69,24 @@ export default function StrategyLab() {
     setRule(key, { entry_model_ids: ids });
   }
 
+  // Palette click: toggle in the active rule; with no rules left, start a new one with that model
+  function pickModel(modelId) {
+    if (form.rules.some(r => r.key === activeKey)) return toggleOption(activeKey, modelId);
+    addRule([modelId]);
+  }
+
+  function addRule(entry_model_ids = []) {
+    const r = newRule('', entry_model_ids);
+    setForm(f => ({ ...f, rules: [...f.rules, r] }));
+    setActiveKey(r.key);
+  }
+
+  function removeRule(key) {
+    const rest = form.rules.filter(x => x.key !== key);
+    setField('rules', rest);
+    if (key === activeKey) setActiveKey(rest[rest.length - 1]?.key ?? null);
+  }
+
   async function addModel() {
     const name = newModelName.trim();
     if (!name) return;
@@ -76,6 +95,7 @@ export default function StrategyLab() {
       const m = await createEntryModel(name);
       setModels(prev => [...prev, m]);
       setNewModelName('');
+      pickModel(m.id);
     } catch (err) {
       setModelError(err.message);
     }
@@ -138,6 +158,8 @@ export default function StrategyLab() {
     }
   }
 
+  const activeIndex = form.rules.findIndex(r => r.key === activeKey);
+  const activeRule = form.rules[activeIndex];
   const active = strategies.filter(s => !s.archived);
   const archived = strategies.filter(s => s.archived);
 
@@ -213,95 +235,144 @@ export default function StrategyLab() {
 
       {!showForm && error && <p className="text-loss text-sm">{error}</p>}
 
-      {/* Create / Edit form */}
+      {/* Create / Edit form — strategy on the left, entry model palette on the right */}
       {showForm && (
-        <div className="card space-y-5 max-w-2xl">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-              {editingId ? 'Edit Strategy' : 'New Strategy'}
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">A rule is met when the trade has at least one of its entry models.</p>
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="grid gap-4 items-start grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(300px,420px)]">
+          <div className="card space-y-5">
             <div>
-              <label className="label">Name <span className="text-loss">*</span></label>
-              <input
-                className="input"
-                placeholder="e.g. NQ Silver Bullet"
-                value={form.name}
-                onChange={e => setField('name', e.target.value)}
-                maxLength={120}
-                required
-                autoFocus
-              />
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {editingId ? 'Edit Strategy' : 'New Strategy'}
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">A rule is met when the trade has at least one of its entry models.</p>
             </div>
-            <div>
-              <label className="label">Description</label>
-              <textarea
-                className="input resize-none"
-                rows={2}
-                placeholder="What is this strategy about?"
-                value={form.description}
-                onChange={e => setField('description', e.target.value)}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">Name <span className="text-loss">*</span></label>
+                <input
+                  className="input"
+                  placeholder="e.g. NQ Silver Bullet"
+                  value={form.name}
+                  onChange={e => setField('name', e.target.value)}
+                  maxLength={120}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="label">Description</label>
+                <input
+                  className="input"
+                  placeholder="What is this strategy about?"
+                  value={form.description}
+                  onChange={e => setField('description', e.target.value)}
+                />
+              </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <label className="label">Rules</label>
-              {form.rules.map((r, i) => (
-                <div key={r.key} className="rounded-2xl bg-surface-raised/60 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500 tabular-nums w-4">{i + 1}</span>
-                    <input
-                      className="input"
-                      placeholder="Label (optional, e.g. Entry model)"
-                      value={r.label}
-                      onChange={e => setRule(r.key, { label: e.target.value })}
-                      maxLength={120}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setField('rules', form.rules.filter(x => x.key !== r.key))}
-                      className="btn-ghost !px-2.5 !py-2 hover:!text-loss hover:!bg-loss/10"
-                      aria-label="Remove rule"
-                    >
-                      ✕
-                    </button>
+              {form.rules.map((r, i) => {
+                const isActive = r.key === activeKey;
+                return (
+                  <div
+                    key={r.key}
+                    onClick={() => setActiveKey(r.key)}
+                    className={`rounded-2xl p-4 space-y-3 cursor-pointer transition-colors ${
+                      isActive ? 'bg-accent-soft/60 ring-2 ring-accent' : 'bg-surface-raised/60 hover:bg-surface-raised'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold tabular-nums w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                        isActive ? 'bg-accent text-white' : 'bg-surface-card text-slate-500 dark:text-slate-400'
+                      }`}>{i + 1}</span>
+                      <input
+                        className="input !bg-surface-card"
+                        placeholder="Label (optional, e.g. Entry model)"
+                        value={r.label}
+                        onFocus={() => setActiveKey(r.key)}
+                        onChange={e => setRule(r.key, { label: e.target.value })}
+                        maxLength={120}
+                      />
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); removeRule(r.key); }}
+                        className="btn-ghost !px-2.5 !py-2 hover:!text-loss hover:!bg-loss/10"
+                        aria-label="Remove rule"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 pl-7">
+                      {r.entry_model_ids.map((mid, j) => (
+                        <Fragment key={mid}>
+                          {j > 0 && <span className="text-xs text-slate-400 dark:text-slate-500">or</span>}
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); toggleOption(r.key, mid); }}
+                            className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-accent text-white hover:bg-loss transition-colors"
+                            title="Remove from rule"
+                          >
+                            {models.find(m => m.id === mid)?.name ?? '?'}
+                            <span className="text-white/70 group-hover:text-white text-xs">✕</span>
+                          </button>
+                        </Fragment>
+                      ))}
+                      {r.entry_model_ids.length === 0 && (
+                        <p className="text-sm text-slate-400 dark:text-slate-500">
+                          {isActive ? 'Click entry models on the right to add them →' : 'Empty — select this rule and pick entry models'}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {models.map(m => {
-                      const on = r.entry_model_ids.includes(m.id);
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => toggleOption(r.key, m.id)}
-                          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                            on ? 'bg-accent text-white' : 'bg-surface-card text-slate-600 dark:text-slate-300 hover:bg-accent-soft'
-                          }`}
-                        >
-                          {m.name}
-                        </button>
-                      );
-                    })}
-                    {models.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">No entry models yet — add one below.</p>}
-                  </div>
-                  {r.entry_model_ids.length >= 2 && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Any one of these</p>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setField('rules', [...form.rules, newRule()])}
-                className="text-sm font-medium text-accent hover:underline"
-              >
+                );
+              })}
+              <button type="button" onClick={() => addRule()} className="text-sm font-medium text-accent hover:underline">
                 + Add rule
               </button>
             </div>
 
+            {error && <p className="text-loss text-sm">{error}</p>}
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={cancelForm} className="btn-ghost">Cancel</button>
+              <button type="submit" disabled={saving} className="btn-primary">
+                {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Strategy'}
+              </button>
+            </div>
+          </div>
+
+          {/* Palette: every entry model; click toggles it in the active rule */}
+          <div className="card space-y-4 lg:sticky lg:top-6">
             <div>
-              <label className="label">New entry model</label>
+              <h2 className="card-title">Entry models</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {activeIndex >= 0 ? <>Click to add to / remove from <span className="font-semibold text-accent">rule {activeIndex + 1}</span></> : 'Click a model to start a new rule'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {models.map(m => {
+                const inActive = activeRule?.entry_model_ids.includes(m.id);
+                const usedIn = form.rules.map((r, i) => r.entry_model_ids.includes(m.id) ? i + 1 : null).filter(Boolean);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => pickModel(m.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      inActive
+                        ? 'bg-accent text-white'
+                        : usedIn.length
+                          ? 'bg-accent-soft text-accent hover:bg-accent hover:text-white'
+                          : 'bg-surface-raised text-slate-600 dark:text-slate-300 hover:bg-accent-soft hover:text-accent dark:hover:text-white'
+                    }`}
+                  >
+                    {m.name}
+                    {usedIn.length > 0 && !inActive && <span className="text-[10px] font-semibold tabular-nums opacity-80">#{usedIn.join(',')}</span>}
+                  </button>
+                );
+              })}
+              {models.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">No entry models yet — add one below.</p>}
+            </div>
+            <div className="pt-1">
               <div className="flex gap-2">
                 <input
                   className="input"
@@ -315,16 +386,8 @@ export default function StrategyLab() {
               </div>
               {modelError && <p className="text-loss text-sm mt-1">{modelError}</p>}
             </div>
-
-            {error && <p className="text-loss text-sm">{error}</p>}
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={cancelForm} className="btn-ghost">Cancel</button>
-              <button type="submit" disabled={saving} className="btn-primary">
-                {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Strategy'}
-              </button>
-            </div>
-          </form>
-        </div>
+          </div>
+        </form>
       )}
 
       {/* Empty state */}
@@ -338,13 +401,13 @@ export default function StrategyLab() {
       )}
 
       {/* Strategy list */}
-      {active.length > 0 && (
+      {!showForm && active.length > 0 && (
         <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
           {active.map(renderCard)}
         </div>
       )}
 
-      {archived.length > 0 && (
+      {!showForm && archived.length > 0 && (
         <div className="space-y-4">
           <button
             type="button"

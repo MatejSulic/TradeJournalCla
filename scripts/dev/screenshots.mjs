@@ -46,6 +46,11 @@ const PAGES = [
   }],
   ['series', '/series'],
   ['strategies', '/strategies'],
+  ['strategy-edit', '/strategies', async page => {
+    const edit = page.getByRole('button', { name: 'Edit', exact: true }).first();
+    if (await edit.count()) await edit.click();
+    else await page.getByRole('button', { name: /New Strategy/ }).click();
+  }],
   ['expenses', '/expenses'],
   ['ai', '/ai'],
 ].filter(([name]) => !only || only.includes(name));
