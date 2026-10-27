@@ -21,6 +21,8 @@ app.use('/uploads', express.static(require('./db').UPLOADS_DIR));
 
 // Routes
 app.use('/api/series', require('./routes/series'));
+app.use('/api/strategies', require('./routes/strategies'));
+app.use('/api/strategies', require('./routes/strategies'));
 app.use('/api/entry-models', require('./routes/entryModels'));
 app.use('/api/trades', require('./routes/trades'));
 app.use('/api/backup', require('./routes/backup'));

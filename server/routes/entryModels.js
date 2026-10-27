@@ -34,7 +34,15 @@ router.patch('/reorder', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM entry_models WHERE id = ?').run(req.params.id);
+  db.transaction(() => {
+    db.transaction(() => {
+    db.prepare('DELETE FROM entry_models WHERE id = ?').run(req.params.id);
+    // A rule without options could never be met
+    db.prepare('DELETE FROM strategy_rules WHERE id NOT IN (SELECT rule_id FROM strategy_rule_options)').run();
+  })();
+    // A rule without options could never be met
+    db.prepare('DELETE FROM strategy_rules WHERE id NOT IN (SELECT rule_id FROM strategy_rule_options)').run();
+  })();
   res.json({ ok: true });
 });
 

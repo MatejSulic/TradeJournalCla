@@ -146,8 +146,52 @@ if [[ "${EXPECT_NO_GAMIFICATION:-}" == 1 ]]; then
   ok "GET /api/gamification/profile -> 404"
 fi
 
-# ---------------- AI Analyst (/api/ai, mock provider) ----------------
+# ---------------- Strategies ----------------
 JH=(-H 'Content-Type: application/json')
+# emodel NAME -> id of a fresh entry model
+emodel() { req POST /api/entry-models "${JH[@]}" -d "{\"name\":\"$1\"}"; [[ "$CODE" == 201 ]] || fail "POST entry model $1 -> $CODE $BODY"; json "$BODY" 'j.id'; }
+MA=$(emodel "SmA$$"); MB=$(emodel "SmB$$")
+
+req POST /api/strategies "${JH[@]}" -d '{"name":"NoRules","rules":[]}'
+[[ "$CODE" == 400 ]] || fail "strategy without rules -> $CODE $BODY (expected 400)"
+req POST /api/strategies "${JH[@]}" -d '{"name":"EmptyRule","rules":[{"label":null,"entry_model_ids":[]}]}'
+[[ "$CODE" == 400 ]] || fail "strategy with empty rule -> $CODE $BODY (expected 400)"
+req POST /api/strategies "${JH[@]}" -d "{\"name\":\"  \",\"rules\":[{\"entry_model_ids\":[$MA]}]}"
+[[ "$CODE" == 400 ]] || fail "strategy with empty name -> $CODE $BODY (expected 400)"
+ok "strategy validation -> 400 (no rules / empty rule / empty name)"
+
+STRAT_BODY="{\"name\":\"S$$\",\"rules\":[{\"label\":null,\"entry_model_ids\":[$MA]},{\"label\":\"Entry\",\"entry_model_ids\":[$MA,$MB]}]}"
+req POST /api/strategies "${JH[@]}" -d "$STRAT_BODY"
+[[ "$CODE" == 201 && "$(json "$BODY" "j.rules.length === 2 && j.rules[1].options.length === 2 && j.rules[1].label === 'Entry' && j.archived === false && j.trade_count === 0")" == true ]] \
+  || fail "POST strategy -> $CODE $BODY"
+SID=$(json "$BODY" 'j.id')
+req POST /api/strategies "${JH[@]}" -d "$STRAT_BODY"
+[[ "$CODE" == 409 ]] || fail "duplicate strategy name -> $CODE $BODY (expected 409)"
+ok "POST /strategies -> 201 (id $SID), duplicate name -> 409"
+
+req PUT "/api/strategies/$SID" "${JH[@]}" -d "{\"name\":\"S$$\",\"archived\":true,\"rules\":[{\"label\":\"Entry\",\"entry_model_ids\":[$MA,$MB]}]}"
+[[ "$CODE" == 200 && "$(json "$BODY" "j.archived === true && j.rules.length === 1")" == true ]] || fail "PUT strategy -> $CODE $BODY"
+req GET /api/strategies
+[[ "$(json "$BODY" "j.some(s => s.id === $SID && s.archived === true)")" == true ]] || fail "GET /strategies lacks $SID: $BODY"
+ok "PUT /strategies/:id archives + replaces rules, GET lists it"
+
+# Deleting an entry model that is the only option of a rule deletes that rule
+req POST /api/strategies "${JH[@]}" -d "{\"name\":\"S2_$$\",\"rules\":[{\"entry_model_ids\":[$MB]},{\"entry_model_ids\":[$MA]}]}"
+[[ "$CODE" == 201 ]] || fail "POST strategy S2 -> $CODE $BODY"
+SID2=$(json "$BODY" 'j.id')
+req DELETE "/api/entry-models/$MB"
+req GET "/api/strategies/$SID2"
+[[ "$CODE" == 200 && "$(json "$BODY" "j.rules.length === 1 && j.rules[0].options[0].id === $MA")" == true ]] || fail "empty rule not removed: $CODE $BODY"
+ok "deleting an entry model removes rules left without options"
+
+req DELETE "/api/strategies/$SID2"
+[[ "$CODE" == 200 ]] || fail "DELETE strategy -> $CODE $BODY"
+req GET "/api/strategies/$SID2"
+[[ "$CODE" == 404 ]] || fail "GET deleted strategy -> $CODE (expected 404)"
+req DELETE "/api/strategies/$SID"
+ok "DELETE /strategies/:id -> 404 afterwards"
+
+# ---------------- AI Analyst (/api/ai, mock provider) ----------------
 # sse URL JSON -> sets SSE (raw stream body) and CODE
 sse() {
   local out; out="$(curl -sN -X POST "${JH[@]}" -d "$2" -w $'\n%{http_code}' "$B$1")"
