@@ -33,6 +33,7 @@ const PAGES = [
     await page.getByRole('button', { name: 'No-trade day' }).click();
   }],
   ['series', '/series'],
+  ['strategies', '/strategies'],
   ['expenses', '/expenses'],
   ['ai', '/ai'],
 ].filter(([name]) => !only || only.includes(name));

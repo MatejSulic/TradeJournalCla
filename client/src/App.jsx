@@ -6,6 +6,7 @@ import TradeList from './pages/TradeList';
 import TradeDetail from './pages/TradeDetail';
 import TradeForm from './pages/TradeForm';
 import SeriesPage from './pages/Series';
+import StrategyLab from './pages/StrategyLab';
 import Expenses from './pages/Expenses';
 import AiAnalyst from './pages/AiAnalyst';
 
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/trades/:id" element={<TradeDetail />} />
             <Route path="/trades/:id/edit" element={<TradeForm />} />
             <Route path="/series" element={<SeriesPage />} />
+            <Route path="/strategies" element={<StrategyLab />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/ai" element={<AiAnalyst />} />
             <Route path="/ai/:id" element={<AiAnalyst />} />

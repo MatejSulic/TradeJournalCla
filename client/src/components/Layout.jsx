@@ -8,6 +8,7 @@ const links = [
   { to: '/dashboard', label: 'Dashboard', icon: ChartIcon   },
   { to: '/trades',    label: 'Trades',    icon: ListIcon    },
   { to: '/series',    label: 'Series',    icon: SeriesIcon  },
+  { to: '/strategies', label: 'Strategy Lab', icon: FlaskIcon },
   { to: '/expenses',  label: 'Expenses',  icon: WalletIcon  },
   { to: '/ai',        label: 'AI Analyst', icon: SparkleIcon },
 ];
@@ -159,6 +160,14 @@ function SeriesIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h10" />
+    </svg>
+  );
+}
+
+function FlaskIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 3h6M10 3v6L4.5 18.5A1.5 1.5 0 005.8 21h12.4a1.5 1.5 0 001.3-2.5L14 9V3M7.5 15h9" />
     </svg>
   );
 }

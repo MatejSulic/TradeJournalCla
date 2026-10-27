@@ -60,6 +60,13 @@ export const createSeries = (data)     => req('/series', { method: 'POST', heade
 export const updateSeries = (id, data) => req(`/series/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
 export const deleteSeries = (id)       => req(`/series/${id}`, { method: 'DELETE' });
 
+// Strategies
+export const getStrategies    = ()         => req('/strategies');
+export const getStrategy      = (id)       => req(`/strategies/${id}`);
+export const createStrategy   = (data)     => req('/strategies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+export const updateStrategy   = (id, data) => req(`/strategies/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+export const deleteStrategy   = (id)       => req(`/strategies/${id}`, { method: 'DELETE' });
+
 // Expenses — prop firm accounts & payouts
 export const getExpenseAccounts = () => req('/expenses/accounts');
 export const createExpenseAccount = (data) =>
