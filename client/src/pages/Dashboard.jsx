@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { parseISO, getDay, format, startOfMonth, endOfMonth } from 'date-fns';
-import { getTrades, getEntryModels, getSeries, getExpenseAccounts } from '../api';
+import { getTrades, getEntryModels, getSeries, getStrategies, getExpenseAccounts } from '../api';
 import TradeFilters, { useTradeFilters } from '../components/TradeFilters';
 import TradeCalendar from '../components/TradeCalendar';
 import StatCards, { computeStats } from '../components/dashboard/StatCards';
@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
+  const [strategies, setStrategies] = useState([]);
   const [passedDates, setPassedDates] = useState(new Set());
   const [noTradeDays, setNoTradeDays] = useState([]);
   const { filters, dowFilter, apiFilters, searchParams, setSearchParams } = useTradeFilters();
@@ -20,6 +21,7 @@ export default function Dashboard() {
   useEffect(() => {
     getEntryModels().then(setModels);
     getSeries().then(setSeriesList);
+    getStrategies().then(setStrategies).catch(() => {});
     getTrades({ day_type: 'notrade' }).then(setNoTradeDays);
   }, []);
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function Dashboard() {
         models={models}
         setModels={setModels}
         seriesList={seriesList}
+        strategies={strategies}
         extraChips={extraChips}
         title={<>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-white">Dashboard</h1>

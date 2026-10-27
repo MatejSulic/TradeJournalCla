@@ -20,6 +20,7 @@ export function useTradeFilters() {
     asset: searchParams.get('asset') || '',
     session_type: searchParams.get('session_type') || 'live',
     series_id: searchParams.get('series_id') || '',
+    strategy_id: searchParams.get('strategy_id') || '',
     direction: searchParams.get('direction') || '',
     pnl: searchParams.get('pnl') || '',
     entry_model_id: searchParams.getAll('entry_model_id').map(Number),
@@ -52,7 +53,7 @@ export function useTradeFilters() {
  * - `extraChips`: [{ key, label, clear, hides? }] — prepended to the chips. With `hides: ['from', 'to']` those chips
  *   are dropped and the extra chip takes the slot of the first hidden one instead (Dashboard's calendar month chip).
  */
-export default function TradeFilters({ models, setModels, seriesList, extraChips = [], title = null, actions = null, className = '' }) {
+export default function TradeFilters({ models, setModels, seriesList, strategies = [], extraChips = [], title = null, actions = null, className = '' }) {
   const { filters, dowFilter, set, clearAll, searchParams, setSearchParams } = useTradeFilters();
   const [dragId, setDragId] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
@@ -103,6 +104,10 @@ export default function TradeFilters({ models, setModels, seriesList, extraChips
   const baseChips = [
     filters.asset && { key: 'asset', label: filters.asset },
     filters.series_id && { key: 'series_id', label: seriesList.find(s => s.id == filters.series_id)?.name || 'Series' },
+    filters.strategy_id && {
+      key: 'strategy_id',
+      label: filters.strategy_id === 'none' ? 'No strategy' : strategies.find(s => String(s.id) === filters.strategy_id)?.name || 'Strategy',
+    },
     filters.direction && { key: 'direction', label: filters.direction === 'long' ? 'Long' : 'Short' },
     filters.pnl && { key: 'pnl', label: PNL_LABELS[filters.pnl] },
     filters.from && { key: 'from', label: `From ${filters.from}` },
@@ -244,6 +249,14 @@ export default function TradeFilters({ models, setModels, seriesList, extraChips
                   <select className="input" value={filters.series_id} onChange={e => set('series_id', e.target.value)}>
                     <option value="">All series</option>
                     {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Strategy</label>
+                  <select className="input" value={filters.strategy_id} onChange={e => set('strategy_id', e.target.value)}>
+                    <option value="">All strategies</option>
+                    <option value="none">No strategy</option>
+                    {strategies.map(s => <option key={s.id} value={s.id}>{s.name}{s.archived ? ' (archived)' : ''}</option>)}
                   </select>
                 </div>
                 <div>

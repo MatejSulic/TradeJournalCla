@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format, getDay, parseISO } from 'date-fns';
 import {
   getAiStatus, estimateAi, createAiConversation, getAiConversation, renameAiConversation, deleteAiConversation,
-  streamAiMessage, getTrades, getEntryModels, getSeries,
+  streamAiMessage, getTrades, getEntryModels, getSeries, getStrategies,
 } from '../api';
 import { searchParamsToObject, snapshotChips } from '../aiFilters';
 import TradeFilters, { useTradeFilters } from '../components/TradeFilters';
@@ -109,6 +109,7 @@ function NewAnalysis() {
   const { filters, dowFilter, apiFilters, searchParams, setSearchParams } = useTradeFilters();
   const [models, setModels] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
+  const [strategies, setStrategies] = useState([]);
   const [trades, setTrades] = useState([]);
   const [allNoTrade, setAllNoTrade] = useState([]);
   const [noTradeLoaded, setNoTradeLoaded] = useState(false);
@@ -130,6 +131,7 @@ function NewAnalysis() {
   useEffect(() => {
     getEntryModels().then(setModels).catch(() => {});
     getSeries().then(setSeriesList).catch(() => {});
+    getStrategies().then(setStrategies).catch(() => {});
     getTrades({ day_type: 'notrade' })
       .then(list => { setAllNoTrade(list); setNoTradeLoaded(true); })
       .catch(e => setLoadError(e.message));
@@ -223,6 +225,7 @@ function NewAnalysis() {
         models={models}
         setModels={setModels}
         seriesList={seriesList}
+        strategies={strategies}
         title={<PageTitle />}
         actions={ntToggle}
       />
@@ -308,7 +311,7 @@ function Conversation({ id, status, renamed, onListChange }) {
   const [draft, setDraft] = useState('');
   const [pinKey, setPinKey] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [lookups, setLookups] = useState({ seriesList: [], models: [] });
+  const [lookups, setLookups] = useState({ seriesList: [], models: [], strategies: [] });
 
   const busyRef = useRef(false); // synchronous double-submit guard (Ctrl+Enter twice before re-render)
   const abortRef = useRef(null);
@@ -339,6 +342,7 @@ function Conversation({ id, status, renamed, onListChange }) {
       .catch(e => { if (!cancelled) setLoadError(e.message); });
     getSeries().then(seriesList => !cancelled && setLookups(l => ({ ...l, seriesList }))).catch(() => {});
     getEntryModels().then(models => !cancelled && setLookups(l => ({ ...l, models }))).catch(() => {});
+    getStrategies().then(strategies => !cancelled && setLookups(l => ({ ...l, strategies }))).catch(() => {});
     return () => { cancelled = true; };
   }, [id]);
 

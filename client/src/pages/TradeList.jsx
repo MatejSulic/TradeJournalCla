@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
-import { getTrades, getEntryModels, getSeries, downloadBackup, restoreBackup } from '../api';
+import { getTrades, getEntryModels, getSeries, getStrategies, downloadBackup, restoreBackup } from '../api';
 import DatePicker from '../components/DatePicker';
 
 const PNL_PILL = {
@@ -10,7 +10,7 @@ const PNL_PILL = {
   breakeven: ['BE', 'bg-neutral/15 text-slate-500 dark:bg-neutral/25 dark:text-slate-300'],
 };
 
-const FILTER_KEYS = ['asset', 'session_type', 'series_id', 'direction', 'pnl', 'entry_model_id', 'from', 'to'];
+const FILTER_KEYS = ['asset', 'session_type', 'series_id', 'strategy_id', 'direction', 'pnl', 'entry_model_id', 'from', 'to'];
 
 const PAGER_BTN = 'btn-ghost !px-2.5 !py-1.5 text-xs';
 
@@ -21,6 +21,7 @@ export default function TradeList() {
   const [trades, setTrades] = useState([]);
   const [models, setModels] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
+  const [strategies, setStrategies] = useState([]);
   const filters = useMemo(
     () => Object.fromEntries(FILTER_KEYS.map(k => [k, searchParams.get(k) || ''])),
     [searchParams],
@@ -46,6 +47,7 @@ export default function TradeList() {
   useEffect(() => {
     getEntryModels().then(setModels);
     getSeries().then(setSeriesList);
+    getStrategies().then(setStrategies).catch(() => {});
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -176,6 +178,11 @@ export default function TradeList() {
           <option value="">All series</option>
           {seriesList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+        <select className="input !w-40 !py-2" value={filters.strategy_id} onChange={e => set('strategy_id', e.target.value)}>
+          <option value="">All strategies</option>
+          <option value="none">No strategy</option>
+          {strategies.map(s => <option key={s.id} value={s.id}>{s.name}{s.archived ? ' (archived)' : ''}</option>)}
+        </select>
         <select className="input !w-36 !py-2" value={filters.direction} onChange={e => set('direction', e.target.value)}>
           <option value="">All directions</option>
           <option value="long">Long</option>
@@ -216,7 +223,7 @@ export default function TradeList() {
             <tr className="bg-surface-raised/50">
               {[
                 ['Date', 'text-left'], ['Asset', 'text-left'], ['Type', 'text-left'], ['Direction', 'text-left'],
-                ['Setup', 'text-left'], ['Risk', 'text-right'], ['R:R', 'text-right'], ['Result', 'text-center'], ['', ''],
+                ['Setup', 'text-left'], ['Strategy', 'text-left'], ['Risk', 'text-right'], ['R:R', 'text-right'], ['Result', 'text-center'], ['', ''],
               ].map(([h, align], i) => (
                 <th key={i} className={`px-5 py-3 ${align} text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap`}>{h}</th>
               ))}
@@ -225,7 +232,7 @@ export default function TradeList() {
           <tbody className="divide-y divide-surface-border">
             {trades.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-5 py-16 text-center">
+                <td colSpan={10} className="px-5 py-16 text-center">
                   <p className="text-slate-500 text-sm mb-2">No trades found.</p>
                   <Link to="/trades/new" className="text-xs font-medium text-accent hover:underline">Add your first trade →</Link>
                 </td>
@@ -262,6 +269,11 @@ export default function TradeList() {
                       )}
                     </div>
                   ) : <span className="text-slate-400">—</span>}
+                </td>
+                <td className="px-5 py-3 max-w-[160px]">
+                  {t.strategy?.name
+                    ? <span className="block truncate text-xs font-medium text-slate-600 dark:text-slate-300" title={t.strategy.name}>{t.strategy.name}</span>
+                    : <span className="text-slate-400">—</span>}
                 </td>
                 <td className="px-5 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
                   {t.risk_amount != null ? `$${t.risk_amount.toFixed(2)}` : <span className="text-slate-400">—</span>}

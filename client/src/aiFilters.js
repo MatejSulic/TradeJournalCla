@@ -28,15 +28,16 @@ const list = (v) => (Array.isArray(v) ? v : v == null || v === '' ? [] : [v]);
 
 /**
  * Read-only chip labels for a saved filter snapshot (conversation header).
- * `seriesList` / `models` resolve names; unknown ids fall back to a generic label.
+ * `seriesList` / `models` / `strategies` resolve names; unknown ids fall back to a generic label.
  */
-export function snapshotChips(filters, { seriesList = [], models = [] } = {}) {
+export function snapshotChips(filters, { seriesList = [], models = [], strategies = [] } = {}) {
   if (!filters || typeof filters !== 'object') return [];
   const f = filters;
   const chips = [];
   chips.push(SESSION_LABELS[f.session_type] || 'Live');
   if (f.asset) chips.push(f.asset);
   if (f.series_id) chips.push(seriesList.find(s => String(s.id) === String(f.series_id))?.name || 'Series');
+  if (f.strategy_id) chips.push(f.strategy_id === 'none' ? 'No strategy' : strategies.find(s => String(s.id) === String(f.strategy_id))?.name || 'Strategy');
   if (f.direction) chips.push(f.direction === 'long' ? 'Long' : f.direction === 'short' ? 'Short' : f.direction);
   if (f.pnl) chips.push(PNL_LABELS[f.pnl] || f.pnl);
   if (f.from && f.to) chips.push(`${f.from} → ${f.to}`);
