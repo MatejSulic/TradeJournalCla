@@ -145,27 +145,6 @@ function runSchema() {
       PRIMARY KEY (rule_id, entry_model_id)
     );
 
-    -- Strategies: named checklists of entry-model rules (a rule is met when the trade has any of its options)
-    CREATE TABLE IF NOT EXISTS strategies (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      name        TEXT    NOT NULL UNIQUE,
-      description TEXT,
-      archived    INTEGER NOT NULL DEFAULT 0,
-      created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-      updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-    );
-    CREATE TABLE IF NOT EXISTS strategy_rules (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      strategy_id INTEGER NOT NULL REFERENCES strategies(id) ON DELETE CASCADE,
-      label       TEXT,
-      sort_order  INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE TABLE IF NOT EXISTS strategy_rule_options (
-      rule_id        INTEGER NOT NULL REFERENCES strategy_rules(id) ON DELETE CASCADE,
-      entry_model_id INTEGER NOT NULL REFERENCES entry_models(id) ON DELETE CASCADE,
-      PRIMARY KEY (rule_id, entry_model_id)
-    );
-
   `);
 
   // Migrations for existing DBs (idempotent)
@@ -177,7 +156,6 @@ function runSchema() {
   try { db.exec(`ALTER TABLE prop_accounts ADD COLUMN blown_at TEXT`); } catch (_) {}
   try { db.exec(`ALTER TABLE trades ADD COLUMN premarket_analysis TEXT`); } catch (_) {}
   migrateNoTradeDays();
-  try { db.exec(`ALTER TABLE trades ADD COLUMN strategy_id INTEGER REFERENCES strategies(id) ON DELETE SET NULL`); } catch (_) {}
   try { db.exec(`ALTER TABLE trades ADD COLUMN strategy_id INTEGER REFERENCES strategies(id) ON DELETE SET NULL`); } catch (_) {}
   // What a breakeven trade would have become (win / loss) — only set when pnl = 'breakeven'
   try { db.exec(`ALTER TABLE trades ADD COLUMN be_outcome TEXT CHECK(be_outcome IN ('win', 'loss') OR be_outcome IS NULL)`); } catch (_) {}
