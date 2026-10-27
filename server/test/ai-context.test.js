@@ -20,6 +20,12 @@ test('summary line', () => {
   assert.deepEqual(summary, { trades: 4, wins: 2, losses: 1, breakevens: 1, winRate: 67, netR: 2.5, notrade: 1, from: '2026-10-21', to: '2026-10-24' });
 });
 
+test('strategy name in the trade head', () => {
+  const { text } = buildContext([{ ...trades[0], strategy_name: 'London' }], []);
+  assert.ok(text.includes('· Series: Oct eval · Strategy: London'));
+  assert.ok(!buildContext([trades[0]], []).text.includes('Strategy:'));
+});
+
 test('trade and no-trade formatting', () => {
   const { text } = buildContext(trades, noTrade);
   assert.ok(text.includes('TRADE #3 · 2026-10-23 Fri 09:41 · NQ · Short · LOSS · R:R 2.0 · -$300 · Live · Series: Oct eval'));

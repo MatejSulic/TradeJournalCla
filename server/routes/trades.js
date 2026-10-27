@@ -3,6 +3,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { db, UPLOADS_DIR } = require('../db');
+const { getStrategy } = require('../strategyStore');
+const { unmetRules, ruleLabel } = require('../strategyRules');
 
 const router = express.Router();
 
@@ -28,12 +30,15 @@ function hydrateTrade(trade) {
     JOIN trade_entry_models tem ON tem.entry_model_id = em.id
     WHERE tem.trade_id = ?
   `).all(trade.id);
-  return { ...trade, entry_models: models };
+  const strategy = trade.strategy_id
+    ? db.prepare('SELECT id, name FROM strategies WHERE id = ?').get(trade.strategy_id) ?? null
+    : null;
+  return { ...trade, entry_models: models, strategy };
 }
 
 // List all trades
 router.get('/', (req, res) => {
-  const { asset, direction, entry_model_id, from, to, pnl, session_type, series_id } = req.query;
+  const { asset, direction, entry_model_id, from, to, pnl, session_type, series_id, strategy_id } = req.query;
   const day_type = req.query.day_type || 'trade'; // 'trade' | 'notrade' | 'all'
   let sql = 'SELECT DISTINCT t.* FROM trades t';
   const joins = [];
@@ -61,6 +66,8 @@ router.get('/', (req, res) => {
   if (asset)        { sql += ' AND t.asset = ?';          params.push(asset); }
   if (session_type) { sql += ' AND t.session_type = ?';   params.push(session_type); }
   if (series_id)    { sql += ' AND t.series_id = ?';      params.push(Number(series_id)); }
+  if (strategy_id === 'none') sql += ' AND t.strategy_id IS NULL';
+  else if (strategy_id)       { sql += ' AND t.strategy_id = ?'; params.push(Number(strategy_id)); }
   if (direction)    { sql += ' AND t.direction = ?';      params.push(direction); }
   if (pnl === 'be_win' || pnl === 'be_loss') {
     sql += " AND t.pnl = 'breakeven' AND t.be_outcome = ?"; params.push(pnl.slice(3));
@@ -91,6 +98,7 @@ router.get('/:id', (req, res) => {
 router.post('/', uploadFields, (req, res) => {
   const v = tradeValues(req.body);
   if (!v.error) v.error = duplicateNoTradeError(v);
+  if (!v.error) v.error = strategyError(v, req.body.entry_model_ids);
   if (v.error) return rejectWithCleanup(req, res, v.error);
 
   const result = db.prepare(`
@@ -116,6 +124,7 @@ router.put('/:id', uploadFields, (req, res) => {
   const { delete_screenshot_ids, entry_model_ids } = req.body;
   const v = tradeValues(req.body);
   if (!v.error) v.error = duplicateNoTradeError(v, req.params.id);
+  if (!v.error) v.error = strategyError(v, entry_model_ids);
   if (v.error) return rejectWithCleanup(req, res, v.error);
 
   db.prepare(`
@@ -172,7 +181,7 @@ router.delete('/:id', (req, res) => {
 });
 
 const TRADE_COLUMNS = [
-  'day_type', 'asset', 'session_type', 'series_id', 'direction', 'pnl', 'be_outcome', 'risk_reward', 'risk_amount',
+  'day_type', 'asset', 'session_type', 'series_id', 'strategy_id', 'direction', 'pnl', 'be_outcome', 'risk_reward', 'risk_amount',
   'pnl_dollars', 'entry_time', 'premarket_analysis', 'why_entered', 'no_trade_reason', 'faded_setups',
   'psychology', 'improvements', 'risk_management',
 ];
@@ -187,7 +196,7 @@ function tradeValues(body) {
 
   if (day_type === 'notrade') {
     return {
-      day_type, asset: null, session_type: 'live', series_id: null, direction: null, pnl: null, be_outcome: null,
+      day_type, asset: null, session_type: 'live', series_id: null, strategy_id: null, direction: null, pnl: null, be_outcome: null,
       risk_reward: null, risk_amount: null, pnl_dollars: null, entry_time: body.entry_time,
       premarket_analysis: text('premarket_analysis'), why_entered: null,
       no_trade_reason: text('no_trade_reason'), faded_setups: text('faded_setups'),
@@ -207,6 +216,7 @@ function tradeValues(body) {
   return {
     day_type, asset: body.asset, session_type: body.session_type || 'live',
     series_id: body.series_id ? Number(body.series_id) : null,
+    strategy_id: body.strategy_id ? Number(body.strategy_id) : null,
     direction: body.direction, pnl: body.pnl,
     be_outcome: body.pnl === 'breakeven' ? body.be_outcome || null : null,
     risk_reward: body.risk_reward ? parseFloat(body.risk_reward) : null,
@@ -225,6 +235,16 @@ function duplicateNoTradeError(v, ownId = null) {
     SELECT id FROM trades WHERE day_type = 'notrade' AND substr(entry_time, 1, 10) = ? AND id != ?
   `).get(v.entry_time.slice(0, 10), ownId ?? -1);
   return dup ? 'a no-trade day for this date already exists' : null;
+}
+
+// A trade with a strategy must meet every rule (archived strategies still count, so old trades stay editable)
+function strategyError(v, entry_model_ids) {
+  if (!v.strategy_id) return null;
+  const strategy = getStrategy(v.strategy_id);
+  if (!strategy) return 'unknown strategy';
+  const ids = (Array.isArray(entry_model_ids) ? entry_model_ids : [entry_model_ids]).filter(Boolean);
+  const unmet = unmetRules(strategy.rules, ids);
+  return unmet.length ? `Strategy rules not met: ${unmet.map(ruleLabel).join(', ')}` : null;
 }
 
 // Multer saves uploads before validation — remove them when the request is rejected

@@ -53,6 +53,7 @@ function serializeTrade(t) {
   if (has(t.pnl_dollars)) head.push(fmtMoney(Number(t.pnl_dollars)));
   if (has(t.session_type)) head.push(cap(t.session_type));
   if (has(t.series_name)) head.push(`Series: ${t.series_name}`);
+  if (has(t.strategy_name)) head.push(`Strategy: ${t.strategy_name}`);
   const lines = [head.filter(has).join(' · ')];
   const models = (t.entry_models || []).map(m => m.name).filter(has);
   if (models.length) lines.push(`Entry models: ${models.join(', ')}`);

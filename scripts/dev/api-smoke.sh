@@ -54,7 +54,8 @@ start_server AI_PROVIDER=mock
 ok "server up on :$PORT"
 
 # json <json> <js-expr using j>
-json() { J="$1" node -pe "const j=JSON.parse(process.env.J); $2"; }
+# (JSON goes via stdin: a big body would exceed the per-variable env limit)
+json() { printf '%s' "$1" | node -pe "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); $2"; }
 # req METHOD URL [curl args...] -> sets BODY and CODE
 req() {
   local m="$1" u="$2"; shift 2
@@ -190,6 +191,62 @@ req GET "/api/strategies/$SID2"
 [[ "$CODE" == 404 ]] || fail "GET deleted strategy -> $CODE (expected 404)"
 req DELETE "/api/strategies/$SID"
 ok "DELETE /strategies/:id -> 404 afterwards"
+
+# Trades with a strategy: rules enforced on save, filter, archived still savable, cleared / dropped correctly
+MA=$(emodel "SmC$$"); MB=$(emodel "SmD$$")
+req POST /api/strategies "${JH[@]}" -d "{\"name\":\"TS$$\",\"rules\":[{\"entry_model_ids\":[$MA]},{\"label\":\"Entry\",\"entry_model_ids\":[$MB]}]}"
+SID=$(json "$BODY" 'j.id')
+STRAT_F=(-F "strategy_id=$SID")
+SDATE=2026-08-$((10 + RANDOM % 18))
+
+req POST /api/trades "${TRADE_F[@]}" "${STRAT_F[@]}" -F "entry_model_ids=$MA"
+[[ "$CODE" == 400 && "$(json "$BODY" "j.error.includes('Entry')")" == true ]] || fail "unmet strategy rule -> $CODE $BODY (expected 400 naming 'Entry')"
+req POST /api/trades "${TRADE_F[@]}" "${STRAT_F[@]}" -F "entry_model_ids=$MA" -F "entry_model_ids=$MB"
+[[ "$CODE" == 201 && "$(json "$BODY" "j.strategy.id === $SID && typeof j.strategy.name === 'string'")" == true ]] || fail "POST trade with met strategy -> $CODE $BODY"
+STID=$(json "$BODY" 'j.id')
+ok "trade with strategy: unmet rule -> 400, met -> 201 + strategy"
+
+req POST /api/strategies "${JH[@]}" -d "{\"name\":\"TS1_$$\",\"rules\":[{\"entry_model_ids\":[$MA]}]}"
+SID1=$(json "$BODY" 'j.id')
+req POST /api/trades "${TRADE_F[@]}" -F "strategy_id=$SID1" -F "entry_model_ids=$MA"
+[[ "$CODE" == 201 ]] || fail "single entry_model_ids (string in multipart) -> $CODE $BODY"
+req DELETE "/api/trades/$(json "$BODY" 'j.id')"
+req DELETE "/api/strategies/$SID1"
+ok "single entry model in multipart satisfies a one-rule strategy"
+
+req POST /api/trades "${TRADE_F[@]}" -F strategy_id=999999 -F "entry_model_ids=$MA"
+[[ "$CODE" == 400 ]] || fail "unknown strategy_id -> $CODE $BODY (expected 400)"
+ok "unknown strategy_id -> 400"
+
+req GET "/api/trades?strategy_id=$SID"
+[[ "$(json "$BODY" "j.length >= 1 && j.every(t => t.strategy && t.strategy.id === $SID)")" == true ]] || fail "filter strategy_id=$SID wrong: $BODY"
+req GET "/api/trades?strategy_id=none"
+[[ "$(json "$BODY" "j.length >= 1 && j.every(t => t.strategy === null)")" == true ]] || fail "filter strategy_id=none wrong: $BODY"
+ok "GET /trades?strategy_id=<id> and =none"
+
+req PUT "/api/strategies/$SID" "${JH[@]}" -d "{\"name\":\"TS$$\",\"archived\":true,\"rules\":[{\"entry_model_ids\":[$MA]},{\"label\":\"Entry\",\"entry_model_ids\":[$MB]}]}"
+[[ "$CODE" == 200 ]] || fail "archive strategy -> $CODE $BODY"
+req PUT "/api/trades/$STID" "${TRADE_F[@]}" "${STRAT_F[@]}" -F "entry_model_ids=$MA" -F "entry_model_ids=$MB"
+[[ "$CODE" == 200 && "$(json "$BODY" "j.strategy.id === $SID")" == true ]] || fail "PUT with archived strategy -> $CODE $BODY"
+ok "PUT trade keeps an archived strategy"
+
+req PUT "/api/trades/$STID" "${TRADE_F[@]}" -F "entry_model_ids=$MA"
+[[ "$CODE" == 200 && "$(json "$BODY" "j.strategy === null && j.strategy_id === null")" == true ]] || fail "PUT without strategy_id -> $CODE $BODY"
+ok "PUT without strategy_id clears the strategy"
+
+req PUT "/api/trades/$STID" "${TRADE_F[@]}" "${STRAT_F[@]}" -F "entry_model_ids=$MA" -F "entry_model_ids=$MB"
+[[ "$CODE" == 200 && "$(json "$BODY" "j.strategy.id === $SID")" == true ]] || fail "re-assign strategy -> $CODE $BODY"
+req PUT "/api/trades/$STID" -F day_type=notrade -F "entry_time=${SDATE}T09:00" "${STRAT_F[@]}" -F "entry_model_ids=$MA"
+[[ "$CODE" == 200 && "$(json "$BODY" "j.strategy === null && j.entry_models.length === 0")" == true ]] || fail "trade -> no-trade kept strategy/models: $CODE $BODY"
+ok "switching to a no-trade day drops strategy and entry models"
+
+req PUT "/api/trades/$STID" "${TRADE_F[@]}" "${STRAT_F[@]}" -F "entry_model_ids=$MA" -F "entry_model_ids=$MB"
+[[ "$CODE" == 200 ]] || fail "back to trade with strategy -> $CODE $BODY"
+req DELETE "/api/strategies/$SID"
+req GET "/api/trades/$STID"
+[[ "$(json "$BODY" "j.strategy === null && j.strategy_id === null")" == true ]] || fail "deleting a strategy left it on the trade: $BODY"
+req DELETE "/api/trades/$STID"
+ok "deleting a strategy -> trade.strategy null, trade kept"
 
 # ---------------- AI Analyst (/api/ai, mock provider) ----------------
 # sse URL JSON -> sets SSE (raw stream body) and CODE

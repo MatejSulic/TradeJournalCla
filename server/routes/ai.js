@@ -42,8 +42,9 @@ function loadRows(ids, dayType) {
   if (!ids.length) return [];
   const json = JSON.stringify(ids);
   const rows = db.prepare(`
-    SELECT t.*, s.name as series_name FROM trades t
+    SELECT t.*, s.name as series_name, st.name as strategy_name FROM trades t
     LEFT JOIN series s ON s.id = t.series_id
+    LEFT JOIN strategies st ON st.id = t.strategy_id
     WHERE t.id IN (SELECT value FROM json_each(?)) AND t.day_type = ?
   `).all(json, dayType);
   const models = db.prepare(`
