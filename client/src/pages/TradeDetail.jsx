@@ -171,8 +171,13 @@ export default function TradeDetail() {
         </div>
         <div className="card">
           <p className="card-title mb-3">Entry models</p>
-          {trade.entry_models?.length ? (
+          {(trade.strategy || trade.entry_models?.length) ? (
             <div className="flex flex-wrap gap-1.5">
+              {trade.strategy && (
+                <span className="text-xs font-semibold bg-accent-soft text-accent px-2.5 py-1 rounded-lg" title="Strategy">
+                  {trade.strategy.name}
+                </span>
+              )}
               {trade.entry_models.map(m => (
                 <span key={m.id} className="text-xs font-medium bg-surface-raised text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-lg">
                   {m.name}

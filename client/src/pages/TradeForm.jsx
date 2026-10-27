@@ -1,14 +1,16 @@
 import { Fragment, useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, reorderEntryModels, createTrade, updateTrade, getSeries } from '../api';
+import { getTrade, getEntryModels, createEntryModel, deleteEntryModel, reorderEntryModels, createTrade, updateTrade, getSeries, getStrategies } from '../api';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { lastListUrl } from '../lastView';
 import DatePicker from '../components/DatePicker';
+import StrategyChecklist from '../components/StrategyChecklist';
+import { unmetRules } from '../strategyRules';
 
 const ASSETS = ['NQ', 'MNQ', 'ES', 'MES'];
 
 const EMPTY = {
-  day_type: 'trade', asset: '', session_type: 'live', series_id: '', direction: 'long', pnl: '', be_outcome: '',
+  day_type: 'trade', asset: '', session_type: 'live', series_id: '', strategy_id: '', direction: 'long', pnl: '', be_outcome: '',
   risk_reward: '', risk_amount: '', pnl_dollars: '', entry_time: '',
   premarket_analysis: '', why_entered: '', no_trade_reason: '', faded_setups: '',
   psychology: '', improvements: '', risk_management: '',
@@ -44,6 +46,7 @@ export default function TradeForm() {
   const [htfFiles, setHtfFiles] = useState([]);
   const [dailyBiasFiles, setDailyBiasFiles] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
+  const [strategies, setStrategies] = useState([]);
   const [confirmRemoveModel, setConfirmRemoveModel] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
@@ -61,6 +64,7 @@ export default function TradeForm() {
   useEffect(() => {
     getEntryModels().then(setModels);
     getSeries().then(setSeriesList);
+    loadStrategies(!isEdit);
     if (isEdit) {
       getTrade(id).then(t => {
         setOrigDayType(t.day_type ?? 'trade');
@@ -69,6 +73,7 @@ export default function TradeForm() {
           asset: t.asset ?? '',
           session_type: t.session_type ?? 'live',
           series_id: t.series_id ?? '',
+          strategy_id: t.strategy_id ?? '',
           direction: t.direction ?? 'long',
           pnl: t.pnl ?? '',
           be_outcome: t.be_outcome ?? '',
@@ -90,8 +95,25 @@ export default function TradeForm() {
     }
   }, [id, isEdit]);
 
+  // New trade: preselect the last used strategy (when it still exists and is not archived)
+  const loadStrategies = (prefill = false) => getStrategies().then(list => {
+    setStrategies(list);
+    if (!prefill) return;
+    let last = '';
+    try { last = localStorage.getItem('lastStrategyId') || ''; } catch { /* storage unavailable */ }
+    if (last && list.some(s => String(s.id) === last && !s.archived)) {
+      setFields(f => f.strategy_id === '' ? { ...f, strategy_id: last } : f);
+    }
+  }).catch(() => {});
+
   const set = (k, v) => setFields(f => ({ ...f, [k]: v }));
   const isNoTrade = fields.day_type === 'notrade';
+  const strategy = strategies.find(s => String(s.id) === String(fields.strategy_id)) || null;
+  const unmet = strategy ? unmetRules(strategy.rules, selectedModelIds) : [];
+  // Models outside every rule of the selected strategy ("Other entry models"); all models with None
+  const ruleModelIds = new Set(strategy ? strategy.rules.flatMap(r => r.options.map(o => o.id)) : []);
+  const listModels = strategy ? models.filter(m => !ruleModelIds.has(m.id)) : models;
+  const selectableStrategies = strategies.filter(s => !s.archived || String(s.id) === String(fields.strategy_id));
 
   // Auto-calculate risk_amount from pnl_dollars + risk_reward
   useEffect(() => {
@@ -161,6 +183,7 @@ export default function TradeForm() {
     await deleteEntryModel(modelId);
     setModels(ms => ms.filter(m => m.id !== modelId));
     setSelectedModelIds(ids => ids.filter(x => x !== modelId));
+    loadStrategies(); // rules lose their option (or disappear) with the model
   };
 
   const toggleDelete = (ssId) => {
@@ -174,6 +197,10 @@ export default function TradeForm() {
     if (!fields.entry_time) { setError(isNoTrade ? 'Date is required' : 'Entry time is required'); return; }
     if (!isNoTrade && !fields.pnl) { setError('Result is required'); return; }
     if (!isNoTrade && !fields.asset) { setError('Asset is required'); return; }
+    if (!isNoTrade && unmet.length) {
+      setError(`${unmet.length} strategy rule${unmet.length === 1 ? '' : 's'} unmet`);
+      return;
+    }
     // Turning a logged trade into a no-trade day wipes its trade data — ask first
     if (isEdit && isNoTrade && origDayType === 'trade') { setConfirmToNoTrade(true); return; }
     save();
@@ -186,7 +213,7 @@ export default function TradeForm() {
     setError('');
     try {
       const fd = new FormData();
-      Object.entries(fields).forEach(([k, v]) => { if (v !== '') fd.append(k, v); });
+      Object.entries(fields).forEach(([k, v]) => { if (v !== '' && !(isNoTrade && k === 'strategy_id')) fd.append(k, v); });
       if (!isNoTrade) selectedModelIds.forEach(id => fd.append('entry_model_ids', id));
       deleteIds.forEach(id => fd.append('delete_screenshot_ids', id));
       if (!isNoTrade) ltfFiles.forEach(f => fd.append('ltf_screenshots', f));
@@ -194,6 +221,12 @@ export default function TradeForm() {
       dailyBiasFiles.forEach(f => fd.append('daily_bias_screenshots', f));
 
       const result = isEdit ? await updateTrade(id, fd) : await createTrade(fd);
+      if (!isNoTrade) {
+        try {
+          if (fields.strategy_id !== '') localStorage.setItem('lastStrategyId', String(fields.strategy_id));
+          else localStorage.removeItem('lastStrategyId');
+        } catch { /* storage unavailable */ }
+      }
       savingRef.current = false;
       setSaving(false);
       // Edit → back to the filtered list it was opened from; new → its detail (form replaced in history)
@@ -223,6 +256,7 @@ export default function TradeForm() {
     fields.pnl && { win: 'Win', loss: 'Loss', breakeven: 'BE' }[fields.pnl],
     fields.pnl === 'breakeven' && fields.be_outcome && (fields.be_outcome === 'win' ? '→ Win' : '→ Loss'),
     fields.risk_reward && `${fields.risk_reward}R`,
+    strategy?.name,
   ].filter(Boolean);
 
   return (
@@ -400,14 +434,29 @@ export default function TradeForm() {
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-accent-soft text-accent">{selectedModelIds.length} selected</span>
               )}
             </div>
-            {models.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="label">Strategy</label>
+              <select className="input" value={fields.strategy_id} onChange={e => set('strategy_id', e.target.value)}>
+                <option value="">None</option>
+                {selectableStrategies.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}{s.archived ? ' (archived)' : ''}</option>
+                ))}
+              </select>
+            </div>
+            {strategy && (
+              <>
+                <StrategyChecklist strategy={strategy} selectedIds={selectedModelIds} onToggle={toggleModel} />
+                <h3 className="label !mb-0 pt-1">Other entry models</h3>
+              </>
+            )}
+            {listModels.length > 0 && (
               <div
                 className="flex flex-wrap gap-1.5 items-center"
                 onDrop={handleDrop}
                 onDragOver={e => e.preventDefault()}
                 onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropIndex(null); }}
               >
-                {models.map((m, index) => {
+                {listModels.map((m, index) => {
                   const active = selectedModelIds.includes(m.id);
                   const isDragging = m.id === dragId;
                   return (
@@ -416,7 +465,7 @@ export default function TradeForm() {
                         <div className="w-0.5 h-7 bg-accent rounded-full self-center" />
                       )}
                       <div
-                        draggable
+                        draggable={!strategy}
                         onDragStart={e => handleDragStart(e, m.id)}
                         onDragOver={e => handleDragOver(e, index)}
                         onDragEnd={handleDragEnd}
@@ -445,7 +494,7 @@ export default function TradeForm() {
                     </Fragment>
                   );
                 })}
-                {dropIndex === models.length && dragId && (
+                {dropIndex === listModels.length && dragId && (
                   <div className="w-0.5 h-7 bg-accent rounded-full self-center" />
                 )}
               </div>
