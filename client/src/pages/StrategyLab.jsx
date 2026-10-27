@@ -23,6 +23,8 @@ export default function StrategyLab() {
   const [newModelName, setNewModelName] = useState('');
   const [modelError, setModelError] = useState('');
   const [activeKey, setActiveKey] = useState(null); // rule that receives clicks from the entry model palette
+  const [dragKey, setDragKey] = useState(null);     // rule being dragged (only via its grip handle)
+  const [overKey, setOverKey] = useState(null);
 
   useEffect(() => {
     Promise.all([getStrategies(), getEntryModels()])
@@ -79,6 +81,23 @@ export default function StrategyLab() {
     const r = newRule('', entry_model_ids);
     setForm(f => ({ ...f, rules: [...f.rules, r] }));
     setActiveKey(r.key);
+  }
+
+  // Move rule `key` to index `to` (rule order = checklist order in TradeForm)
+  function moveRule(key, to) {
+    setForm(f => {
+      const from = f.rules.findIndex(r => r.key === key);
+      if (from < 0 || to < 0 || to >= f.rules.length || from === to) return f;
+      const rules = [...f.rules];
+      rules.splice(to, 0, rules.splice(from, 1)[0]);
+      return { ...f, rules };
+    });
+  }
+
+  function dropRule(targetKey) {
+    if (dragKey && dragKey !== targetKey) moveRule(dragKey, form.rules.findIndex(r => r.key === targetKey));
+    setDragKey(null);
+    setOverKey(null);
   }
 
   function removeRule(key) {
@@ -277,11 +296,28 @@ export default function StrategyLab() {
                   <div
                     key={r.key}
                     onClick={() => setActiveKey(r.key)}
+                    draggable={dragKey === r.key}
+                    onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; }}
+                    onDragOver={e => { if (dragKey) { e.preventDefault(); setOverKey(r.key); } }}
+                    onDrop={e => { e.preventDefault(); dropRule(r.key); }}
+                    onDragEnd={() => { setDragKey(null); setOverKey(null); }}
                     className={`rounded-2xl p-4 space-y-3 cursor-pointer transition-colors ${
                       isActive ? 'bg-accent-soft/60 ring-2 ring-accent' : 'bg-surface-raised/60 hover:bg-surface-raised'
-                    }`}
+                    } ${dragKey === r.key ? 'opacity-40' : ''} ${overKey === r.key && dragKey !== r.key ? 'outline-dashed outline-2 outline-offset-2 outline-accent' : ''}`}
                   >
                     <div className="flex items-center gap-2">
+                      <span
+                        onMouseDown={() => setDragKey(r.key)}
+                        onMouseUp={() => setDragKey(null)}
+                        className="cursor-grab active:cursor-grabbing text-slate-400 dark:text-slate-500 hover:text-accent -ml-1 shrink-0"
+                        title="Drag to reorder"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+                          <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+                          <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+                        </svg>
+                      </span>
                       <span className={`text-xs font-semibold tabular-nums w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
                         isActive ? 'bg-accent text-white' : 'bg-surface-card text-slate-500 dark:text-slate-400'
                       }`}>{i + 1}</span>
@@ -293,6 +329,21 @@ export default function StrategyLab() {
                         onChange={e => setRule(r.key, { label: e.target.value })}
                         maxLength={120}
                       />
+                      <div className="flex flex-col shrink-0">
+                        {[['↑', i - 1, 'Move up'], ['↓', i + 1, 'Move down']].map(([arrow, to, label]) => (
+                          <button
+                            key={arrow}
+                            type="button"
+                            disabled={to < 0 || to >= form.rules.length}
+                            onClick={e => { e.stopPropagation(); moveRule(r.key, to); }}
+                            className="px-1.5 py-0.5 leading-none text-sm font-semibold text-slate-400 dark:text-slate-500 hover:text-accent disabled:opacity-30 disabled:hover:text-slate-400"
+                            aria-label={label}
+                            title={label}
+                          >
+                            {arrow}
+                          </button>
+                        ))}
+                      </div>
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); removeRule(r.key); }}
@@ -302,7 +353,7 @@ export default function StrategyLab() {
                         ✕
                       </button>
                     </div>
-                    <div className="flex flex-wrap items-center gap-1.5 pl-7">
+                    <div className="flex flex-wrap items-center gap-1.5 pl-12">
                       {r.entry_model_ids.map((mid, j) => (
                         <Fragment key={mid}>
                           {j > 0 && <span className="text-xs text-slate-400 dark:text-slate-500">or</span>}
